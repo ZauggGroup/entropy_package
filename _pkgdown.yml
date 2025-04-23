@@ -1,4 +1,4 @@
-url: ~
+url: https://grp-zaugg.embl-community.io/entropy_package
 template:
   params:
     bootswatch: flatly
