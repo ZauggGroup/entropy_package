@@ -1,0 +1,18 @@
+image: rocker/verse:latest
+
+pages:
+  stage: deploy
+  script:
+    - R -e "install.packages('remotes')"
+    - R -e "install.packages('BiocManager')"
+    - R -e "BiocManager::install('BiocStyle')"
+    - R -e "remotes::install_deps(dependencies = TRUE)"
+    - R -e "remotes::install_local('.', dependencies = TRUE)"
+    - R -e "install.packages('pkgdown')"
+    - R -e "pkgdown::build_site()"
+    - mv docs public
+  artifacts:
+    paths:
+      - public
+  only:
+    - main

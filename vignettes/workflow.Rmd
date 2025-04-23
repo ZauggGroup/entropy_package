@@ -1,0 +1,56 @@
+---
+title: "Full Workflow: Estimate Gene Expression Entropy"
+author: "Aryan Kamal, Charles Dussiau, Judith Zaugg"
+date: "`r doc_date()`"
+package: "`r BiocStyle::pkg_ver('Entropy')`"
+output: BiocStyle::html_document
+vignette: >
+  %\VignetteIndexEntry{Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This vignette demonstrates a complete example of how to use the `Entropy` package to compute entropy values for cells in a Seurat object.
+
+---
+
+## 📦 Load libraries and data
+
+```{r}
+library(Entropy)
+library(Seurat)
+```
+
+
+```{r}
+data("pbmc_small")
+DefaultAssay(pbmc_small) <- "RNA"
+```
+
+```{r}
+result <- run_entropy(
+  seu = pbmc_small,
+  assay = "RNA",
+  nn_list = NULL,           # Automatically computes neighbors
+  output_path = NULL,       # Don’t save the full matrix for now
+  add_assay = TRUE          # Add entropy matrix as a new assay
+)
+```
+
+```{r}
+# Check the added assay
+result[["RNA_entropy"]]
+
+# Visualize mean entropy per cell
+means <- colMeans(GetAssayData(result[["RNA_entropy"]]))
+hist(means, main = "Entropy distribution", xlab = "Mean entropy", col = "steelblue")
+
+```
+
+
+
+
+
+
+
+

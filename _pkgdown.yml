@@ -1,0 +1,44 @@
+url: ~
+template:
+  params:
+    bootswatch: flatly
+    ganalytics: G-530L9SXFM1  # You can remove or update if you don’t want Google Analytics
+  news:
+    one_page: false
+navbar:
+  left:
+    - href: index.html
+    - text: Getting Started
+      href: articles/getting_started.html
+    - text: Vignettes
+      menu:
+        - text: Getting Started
+          desc: Quick intro to using entropy estimation on Seurat objects
+          href: articles/getting_started.html
+        - text: Full Workflow
+          desc: Example of full entropy estimation pipeline
+          href: articles/workflow.html
+    - text: Reference
+      href: reference/index.html
+    - text: Changelog & News
+      href: news/index.html
+
+articles:
+  - title: Getting Started
+    desc: How to quickly use entropy on a Seurat object
+    navbar: Getting Started
+    contents:
+      - getting_started
+      - workflow
+
+reference:
+  - title: Main Function
+    contents:
+      - run_entropy
+  - title: Internal Functions
+    contents:
+      - calculate_entropy_for_cell
+      - estimateur_bub_entropie_discrete
+      - get_bub_precomputed
+      - get_neighbors
+      - bub_opti
