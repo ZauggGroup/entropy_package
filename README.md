@@ -2,6 +2,10 @@
 
 The *Entropy* package allows you to compute gene-level entropy for single cells based on a Seurat object. It provides a flexible and efficient way to measure transcriptional variability and plasticity, with support for neighbor-aware entropy computation and integration into Seurat workflows.
 
+
+### [Visit the Entropy package Webpage](https://grp-zaugg.embl-community.io/entropy_package/index.html)
+
+
 ---
 
 ## 🔍 Summary
