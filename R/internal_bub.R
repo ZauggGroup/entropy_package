@@ -30,11 +30,11 @@ bub_opti <- function(N, m, k_max) {
     X <- t(G * B[1:i, ])
 
     D <- pracma::Diag(rep(-1, i), 0) + pracma::Diag(rep(1, i - 1), 1)
-    U <- t(X) %*% X + (N / 4) * (t(D) %*% D)
+    U <- crossprod(X) + (N / 4) * (crossprod(D))
     U[i, i] <- U[i, i] + (N / 4)
 
     Y <- g_col * Y_non_pond
-    XY <- t(X) %*% Y
+    XY <- crossprod(X, Y)
     XY[i] <- XY[i] + (N / 4) * a[i + 1]
 
     a[1:i] <- corpcor::pseudoinverse(U) %*% XY
