@@ -8,9 +8,12 @@ run_entropy(
   seu,
   assay,
   nn_list = NULL,
+  nn.name = NULL,
   output_path = NULL,
   add_assay = TRUE,
-  k.param = 15
+  k.param = 15,
+  npca = 20,
+  nfeatures = 3000
 )
 }
 \arguments{
@@ -20,11 +23,17 @@ run_entropy(
 
 \item{nn_list}{Optional named list of neighbor cell indices or names per cell. If NULL, neighbors are computed using PCA.}
 
+\item{nn.name}{Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).}
+
 \item{output_path}{Optional character string. If provided, saves the full entropy matrix to this file (using `qs::qsave()`).}
 
-\item{add_assay}{Logical. If TRUE (default), adds the entropy matrix to the Seurat object as a new assay called `"assay_entropy"`.}
+\item{add_assay}{Logical. If TRUE (default), adds the entropy matrix to the Seurat object as a new assay called `"{assay}_entropy"`.}
 
-\item{k.param}{Integer. Number of nearest neighbors to use when computing the neighbor graph.}
+\item{k.param}{Integer. Number of nearest neighbors to use when computing the neighbor graph. Default is 15.}
+
+\item{npca}{Integer. Number of PCA dimensions to use when computing neighbors. Default is 20.}
+
+\item{nfeatures}{Integer. Number of variable features to select before PCA and neighbor finding. Default is 3000.}
 }
 \value{
 If `add_assay = TRUE`, returns the modified Seurat object with a new assay

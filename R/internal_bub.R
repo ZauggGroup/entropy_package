@@ -29,7 +29,7 @@ bub_opti <- function(N, m, k_max) {
     G <- pracma::repmat(g, i, 1)
     X <- t(G * B[1:i, ])
 
-    D <- diag(rep(-1, i), 0) + diag(rep(1, i - 1), 1)
+    D <- pracma::Diag(rep(-1, i), 0) + pracma::Diag(rep(1, i - 1), 1)
     U <- t(X) %*% X + (N / 4) * (t(D) %*% D)
     U[i, i] <- U[i, i] + (N / 4)
 

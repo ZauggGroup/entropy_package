@@ -4,7 +4,7 @@
 \alias{get_neighbors}
 \title{Get neighbor indices for a cell from either a neighbor list or Seurat object}
 \usage{
-get_neighbors(cell_name, seu, nn_list = NULL)
+get_neighbors(cell_name, seu, nn_list = NULL, nn.name = NULL)
 }
 \arguments{
 \item{cell_name}{Cell name (character)}
@@ -12,6 +12,8 @@ get_neighbors(cell_name, seu, nn_list = NULL)
 \item{seu}{Seurat object}
 
 \item{nn_list}{Optional list of neighbors by cell}
+
+\item{nn.name}{Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).}
 }
 \value{
 Integer vector of neighbor indices

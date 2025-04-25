@@ -44,7 +44,7 @@ get_bub_precomputed <- function(N, m, k_max) {
   }
 
   # If within precomputed range
-  if (N >= 1 && N <= 40 && m >= 0 && m <= 2000 && k_eff >= 1 && k_eff <= 12) {
+  if (N >= 1 && N <= 40 && m >= 0 && m <= 4000 && k_eff >= 1 && k_eff <= 12) {
     result <- .precomputed_bub[[N]][[m + 1]][[k_eff]]
     if (!is.null(result)) {
       return(result)
