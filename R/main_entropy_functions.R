@@ -14,10 +14,12 @@ estimateur_bub_entropie_discrete <- function(X) {
   h <- tabulate(X + 1)
   m <- length(h)
 
-  hist_eff <- numeric(N + 1)
-  for (i in 1:(N + 1)) {
-    hist_eff[i] <- sum(h == (i - 1))
-  }
+  #hist_eff <- numeric(N + 1)
+  #for (i in 1:(N + 1)) {
+   # hist_eff[i] <- sum(h == (i - 1))
+  #}
+
+  hist_eff = tabulate(h + 1, nbins = length(X) + 1)
 
   A <- get_bub_precomputed(N, m, k_max = 11)
   H_BUB <- sum(A * hist_eff)
@@ -39,12 +41,14 @@ get_bub_precomputed <- function(N, m, k_max) {
   k_eff <- min(N, k_max)
 
   # Load precomputed table if needed
-  if (!exists(".precomputed_bub", envir = .GlobalEnv)) {
-    .precomputed_bub <<- qs::qread(system.file("extdata", "precomputed_bub.qs", package = "Entropy"))
+  if ( !.data_loaded ) {
+    .data_loaded <<- TRUE
+    futile.logger::flog.info("Reading the precomputed table")
+    .precomputed_bub <<- qs::qread(system.file("extdata", "precomputed_bub_5000.qs", package = "Entropy"))
   }
 
   # If within precomputed range
-  if (N >= 1 && N <= 40 && m >= 0 && m <= 4000 && k_eff >= 1 && k_eff <= 12) {
+  if (N >= 1 && N <= 40 && m >= 0 && m <= 5000 && k_eff >= 1 && k_eff <= 12) {
     result <- .precomputed_bub[[N]][[m + 1]][[k_eff]]
     if (!is.null(result)) {
       return(result)

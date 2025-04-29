@@ -18,3 +18,12 @@
 
 Improved flexibility for entropy estimation in Seurat objects
 Updated function documentation and vignettes
+
+
+# Entropy 0.1.2
+🚀 Speed improvements and feature enhancements:
+
+- Major speed-up of entropy estimation functions (vectorization, precomputing constants)
+- `nfeatures = 0` now skips the selection of highly variable genes (uses all features)
+- Improved flexibility in `run_entropy()`
+- Updated function documentation and vignettes

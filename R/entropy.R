@@ -11,7 +11,7 @@
 #' @param add_assay Logical. If TRUE (default), adds the entropy matrix to the Seurat object as a new assay called `"{assay}_entropy"`.
 #' @param k.param Integer. Number of nearest neighbors to use when computing the neighbor graph. Default is 15.
 #' @param npca Integer. Number of PCA dimensions to use when computing neighbors. Default is 20.
-#' @param nfeatures Integer. Number of variable features to select before PCA and neighbor finding. Default is 3000.
+#' @param nfeatures Integer. Number of variable features to select before PCA and neighbor finding. Default is 0.
 #' @param nn.name Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).
 #'
 #' @return If `add_assay = TRUE`, returns the modified Seurat object with a new assay
@@ -22,7 +22,7 @@
 #' @examples
 #' # Assuming `pbmc` is a Seurat object with an "RNA" assay:
 #' run_entropy(pbmc_small, assay = "RNA", k.param = 15)
-run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path = NULL, add_assay = TRUE, k.param = 15, npca = 20, nfeatures = 3000) {
+run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path = NULL, add_assay = TRUE, k.param = 15, npca = 20, nfeatures = 0) {
 
 
   futile.logger::flog.info("Starting entropy estimation for assay: %s", assay)
@@ -41,8 +41,11 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
     num_pcs <- ncol(Seurat::Embeddings(seu[["pca"]]))
     npca = min(npca,num_pcs)
     seu <- Seurat::FindNeighbors(seu, reduction = "pca", dims = 1:npca, return.neighbor = TRUE, k.param = k.param)
-    futile.logger::flog.info("Selecting top 3000 variable features.")
-    seu <- Seurat::FindVariableFeatures(seu, nfeatures = nfeatures)
+    if( nfeatures > 0 ){
+      futile.logger::flog.info("Selecting top %s variable features." , nfeatures)
+      seu <- Seurat::FindVariableFeatures(seu, nfeatures = nfeatures)
+    }
+
   }
 
 
@@ -59,6 +62,8 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
     clear = FALSE,
     width = 60
   )
+
+  .data_loaded <<- FALSE
 
   # Apply with progress
   entropy_matrix_list <- lapply(cell_names, function(cell_name) {

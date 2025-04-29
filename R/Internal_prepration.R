@@ -53,6 +53,7 @@ calculate_entropy_for_cell <- function(cell_name, mat, seu, nn_list = NULL , nn.
   neighbors_idx <- get_neighbors(cell_name, seu, nn_list, nn.name)
   neighbors_expr <- mat[, neighbors_idx, drop = FALSE]
   entropy_gene_expression <- apply(neighbors_expr, 1, estimateur_bub_entropie_discrete)
+
   return(entropy_gene_expression)
 }
 
