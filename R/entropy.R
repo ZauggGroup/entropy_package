@@ -63,7 +63,12 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
     width = 60
   )
 
-  .data_loaded <<- FALSE
+  #.data_loaded <<- FALSE
+
+
+  futile.logger::flog.info("Reading the precomputed table")
+  .precomputed_bub <<- qs::qread(system.file("extdata", "precomputed_bub_5000.qs", package = "Entropy"))
+
 
   # Apply with progress
   entropy_matrix_list <- lapply(cell_names, function(cell_name) {
@@ -74,6 +79,7 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
   names(entropy_matrix_list) <- cell_names
 
   entropy_matrix <- do.call(cbind, entropy_matrix_list)
+
 
   if (!is.null(output_path)) {
     qsave(entropy_matrix, output_path)

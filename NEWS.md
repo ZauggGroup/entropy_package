@@ -27,3 +27,7 @@ Updated function documentation and vignettes
 - `nfeatures = 0` now skips the selection of highly variable genes (uses all features)
 - Improved flexibility in `run_entropy()`
 - Updated function documentation and vignettes
+
+
+# Entropy 0.1.3
+  Speed improvements
