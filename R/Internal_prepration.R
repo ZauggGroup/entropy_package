@@ -58,6 +58,38 @@ calculate_entropy_for_cell <- function(cell_name, mat, seu, nn_list = NULL , nn.
 }
 
 
+#' Calculate binary entropy for a single cell based on its neighbors
+#'
+#' This internal helper function extracts the binary accessibility matrix of a cell's
+#' neighbors (0/1) and computes Shannon entropy per feature (Bernoulli p0/p1).
+#'
+#' @param cell_name Character. Name of the cell to compute entropy for.
+#' @param mat_bin Matrix. Binary matrix (features x cells), values in {0,1}.
+#' @param seu Seurat object.
+#' @param nn_list Optional list mapping cell names to neighbor indices or names.
+#' @param nn.name Optional character. If neighbors are already present in the Seurat object,
+#'   this specifies the name of the neighbor graph to use.
+#'
+#' @return A numeric vector of entropy values for each feature.
+#' @keywords internal
+calculate_entropy_for_cell_binary <- function(cell_name, mat_bin, seu, nn_list = NULL, nn.name = NULL) {
+
+  neighbors_idx <- get_neighbors(cell_name, seu, nn_list, nn.name)
+  neighbors_access <- mat_bin[, neighbors_idx, drop = FALSE]
+
+  p1 <- Matrix::rowMeans(neighbors_access)
+  p0 <- 1 - p1
+
+  ent <- rep(0, length(p1))
+  idx1 <- p1 > 0
+  idx0 <- p0 > 0
+  ent[idx1] <- ent[idx1] - p1[idx1] * log2(p1[idx1])
+  ent[idx0] <- ent[idx0] - p0[idx0] * log2(p0[idx0])
+
+  names(ent) <- rownames(mat_bin)
+  return(ent)
+}
+
 
 
 

@@ -13,7 +13,8 @@ run_entropy(
   add_assay = TRUE,
   k.param = 15,
   npca = 20,
-  nfeatures = 3000
+  nfeatures = 0,
+  mode = c("counts", "binary")
 )
 }
 \arguments{
@@ -33,7 +34,12 @@ run_entropy(
 
 \item{npca}{Integer. Number of PCA dimensions to use when computing neighbors. Default is 20.}
 
-\item{nfeatures}{Integer. Number of variable features to select before PCA and neighbor finding. Default is 3000.}
+\item{nfeatures}{Integer. Number of variable features to select before PCA and neighbor finding. Default is 0.}
+
+\item{mode}{Character. Entropy mode. `"counts"` uses the count-based entropy estimator
+(BUB precomputed table). `"binary"` binarizes the assay counts (values > 0) and
+computes Shannon entropy for a Bernoulli distribution (p0/p1) across neighbors.
+Default is `"counts"`.}
 }
 \value{
 If `add_assay = TRUE`, returns the modified Seurat object with a new assay
@@ -47,5 +53,6 @@ new assay named `"assay_entropy"`.
 }
 \examples{
 # Assuming `pbmc` is a Seurat object with an "RNA" assay:
-run_entropy(pbmc_small, assay = "RNA", k.param = 15)
+run_entropy(pbmc_small, assay = "RNA", k.param = 15, mode = "counts")
+run_entropy(pbmc_small, assay = "ATAC", k.param = 15, mode = "binary")
 }

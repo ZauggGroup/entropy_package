@@ -13,7 +13,10 @@
 #' @param npca Integer. Number of PCA dimensions to use when computing neighbors. Default is 20.
 #' @param nfeatures Integer. Number of variable features to select before PCA and neighbor finding. Default is 0.
 #' @param nn.name Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).
-#'
+#' @param mode Character. Entropy mode. `"counts"` uses the count-based entropy estimator
+#'   (BUB precomputed table). `"binary"` binarizes the assay counts (values > 0) and
+#'   computes Shannon entropy for a Bernoulli distribution (p0/p1) across neighbors.
+#'   Default is `"counts"`.
 #' @return If `add_assay = TRUE`, returns the modified Seurat object with a new assay
 #'         named `"{assay}_entropy"`. If `add_assay = FALSE`, returns a data frame
 #'         of mean entropy values per cell.
@@ -21,8 +24,9 @@
 #'
 #' @examples
 #' # Assuming `pbmc` is a Seurat object with an "RNA" assay:
-#' run_entropy(pbmc_small, assay = "RNA", k.param = 15)
-run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path = NULL, add_assay = TRUE, k.param = 15, npca = 20, nfeatures = 0) {
+#' run_entropy(pbmc_small, assay = "RNA", k.param = 15, mode = "counts")
+#' run_entropy(pbmc_small, assay = "ATAC", k.param = 15, mode = "binary")
+run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path = NULL, add_assay = TRUE, k.param = 15, npca = 20, nfeatures = 0, mode = c("counts", "binary")) {
 
 
   futile.logger::flog.info("Starting entropy estimation for assay: %s", assay)
@@ -51,6 +55,13 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
 
   mat <- Seurat::GetAssayData(seu, layer = "counts")
 
+  if (mode == "binary") {
+    futile.logger::flog.info("Binarizing matrix (counts > 0) for binary entropy.")
+    mat_bin <- (mat > 0)
+    # keep sparse + numeric
+    mat_bin <- Matrix::Matrix(mat_bin * 1, sparse = TRUE)
+  }
+
   # Get all cell names
   cell_names <- colnames(seu)
   n_cells <- length(cell_names)
@@ -66,14 +77,38 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
   #.data_loaded <<- FALSE
 
 
-  futile.logger::flog.info("Reading the precomputed table")
-  .precomputed_bub <<- qs::qread(system.file("extdata", "precomputed_bub_5000.qs", package = "Entropy"))
+  if (mode == "counts") {
+    futile.logger::flog.info("Reading the precomputed table (counts mode)")
+    .precomputed_bub <<- qs::qread(system.file(
+      "extdata", "precomputed_bub_5000.qs",
+      package = "Entropy"
+    ))
+  } else {
+    futile.logger::flog.info("Skipping precomputed BUB table (binary mode)")
+  }
 
 
   # Apply with progress
   entropy_matrix_list <- lapply(cell_names, function(cell_name) {
     pb$tick()
-    calculate_entropy_for_cell(cell_name, mat, seu, nn_list = nn_list , nn.name = nn.name)
+
+    if (mode == "binary") {
+      calculate_entropy_for_cell_binary(
+        cell_name = cell_name,
+        mat_bin   = mat_bin,
+        seu       = seu,
+        nn_list   = nn_list,
+        nn.name   = nn.name
+      )
+    } else {
+      calculate_entropy_for_cell(
+        cell_name = cell_name,
+        mat       = mat,
+        seu       = seu,
+        nn_list   = nn_list,
+        nn.name   = nn.name
+      )
+    }
   })
 
   names(entropy_matrix_list) <- cell_names

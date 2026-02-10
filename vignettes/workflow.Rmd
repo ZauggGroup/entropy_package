@@ -33,7 +33,8 @@ result <- run_entropy(
   assay = "RNA",
   nn_list = NULL,           # Automatically computes neighbors
   output_path = NULL,       # Don’t save the full matrix for now
-  add_assay = TRUE          # Add entropy matrix as a new assay
+  add_assay = TRUE, 
+  mode = "counts"        # Add entropy matrix as a new assay
 )
 ```
 
