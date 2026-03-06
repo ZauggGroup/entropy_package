@@ -1,6 +1,6 @@
 ---
 title: "Neighborhood definition"
-author: "Aryan Kamal, Charles Dussiau, Judith Zaugg"
+author: "Aryan Kamal, Charles Dussiau, Amelia Kurti, Judith Zaugg"
 date: "`r doc_date()`"
 package: "`r BiocStyle::pkg_ver('Entropy')`"
 output: BiocStyle::html_document

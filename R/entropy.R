@@ -252,15 +252,34 @@ run_entropy <- function(
 
 
   if (add_assay) {
+
     entropy_assay <- Seurat::CreateAssayObject(counts = entropy_matrix)
     assay_name <- paste0(assay, "_entropy")
     seu[[assay_name]] <- entropy_assay
-    futile.logger::flog.info("Entropy matrix added to Seurat object as '%s'.", assay_name)
+
+    # compute mean entropy per cell
+    means <- colMeans(entropy_matrix)
+
+    # add to metadata
+    meta_name <- paste0("entropy_mean_", assay)
+    seu[[meta_name]] <- means
+
+    futile.logger::flog.info(
+      "Entropy matrix added to Seurat object as '%s'.", assay_name
+    )
+
+    futile.logger::flog.info(
+      "Mean entropy added to metadata column '%s'.", meta_name
+    )
+
     return(seu)
+
   } else {
+
     means <- colMeans(entropy_matrix)
     Ent_mean <- as.data.frame(means)
     return(Ent_mean)
+
   }
 
 }

@@ -23,7 +23,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.6</span>
       </span>
     </div>
 
@@ -110,6 +110,14 @@
 <li>Binary entropy now uses sparse neighborhood 1-counts with a precomputed entropy lookup table</li>
 <li>Added internal binary_entropy_lookup resource loaded in binary mode, with safe fallback for larger neighborhood sizes</li>
 </ul></div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.1.6" id="entropy-016">Entropy 0.1.6<a class="anchor" aria-label="anchor" href="#entropy-016"></a></h2>
+<ul><li>Updated neighborhood input API: replaced legacy <code>nn_list</code> / <code>nn.name</code> with the new <code>neighbors</code> + <code>neighbors_method</code> interface</li>
+<li>Added support for computing neighborhoods from a different assay via the <code>neighbor_assay</code> parameter</li>
+<li>Added mean entropy per cell automatically to Seurat metadata (<code>mean_entropy_{assay}</code>)</li>
+<li>Added vignette explaining neighborhood definition (<code>auto</code>, <code>seurat</code>, and <code>custom</code> modes)</li>
+<li>Improved documentation and pkgdown website structure</li>
+</ul></div>
   </div>
 
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
@@ -120,7 +128,7 @@
 
 
       <footer><div class="copyright">
-  <p></p><p>Developed by Aryan Kamal, Charles Dussiau, Judith Zaugg.</p>
+  <p></p><p>Developed by Aryan Kamal, Charles Dussiau, Amelia Kurti, Judith Zaugg.</p>
 </div>
 
 <div class="pkgdown">

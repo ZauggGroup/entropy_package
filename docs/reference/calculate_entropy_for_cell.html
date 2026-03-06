@@ -24,7 +24,7 @@ and computes entropy for each gene using the specified estimator."><!-- mathjax 
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.6</span>
       </span>
     </div>
 
@@ -77,7 +77,7 @@ and computes entropy for each gene using the specified estimator.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">calculate_entropy_for_cell</span><span class="op">(</span><span class="va">cell_name</span>, <span class="va">mat</span>, <span class="va">seu</span>, nn_list <span class="op">=</span> <span class="cn">NULL</span>, nn.name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">calculate_entropy_for_cell</span><span class="op">(</span><span class="va">cell_name</span>, <span class="va">mat</span>, <span class="va">seu</span>, <span class="va">neighbors</span>, <span class="va">neighbors_method</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -96,12 +96,12 @@ and computes entropy for each gene using the specified estimator.</p>
 <dd><p>Seurat object.</p></dd>
 
 
-<dt id="arg-nn-list">nn_list<a class="anchor" aria-label="anchor" href="#arg-nn-list"></a></dt>
-<dd><p>Optional list mapping cell names to neighbor indices or names.</p></dd>
+<dt id="arg-neighbors">neighbors<a class="anchor" aria-label="anchor" href="#arg-neighbors"></a></dt>
+<dd><p>Neighbor definition. Either a named list or a Seurat Neighbor object.</p></dd>
 
 
-<dt id="arg-nn-name">nn.name<a class="anchor" aria-label="anchor" href="#arg-nn-name"></a></dt>
-<dd><p>Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).</p></dd>
+<dt id="arg-neighbors-method">neighbors_method<a class="anchor" aria-label="anchor" href="#arg-neighbors-method"></a></dt>
+<dd><p>Character. One of `"custom"` or `"seurat"`.</p></dd>
 
 </dl></div>
     <div id="value">
@@ -117,7 +117,7 @@ and computes entropy for each gene using the specified estimator.</p>
 
 
       <footer><div class="copyright">
-  <p></p><p>Developed by Aryan Kamal, Charles Dussiau, Judith Zaugg.</p>
+  <p></p><p>Developed by Aryan Kamal, Charles Dussiau, Amelia Kurti, Judith Zaugg.</p>
 </div>
 
 <div class="pkgdown">

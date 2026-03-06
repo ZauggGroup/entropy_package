@@ -38,7 +38,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.5</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.6</span>
       </span>
     </div>
 
@@ -91,7 +91,7 @@
       <h1 data-toc-skip>Full workflow: estimate gene expression
 entropy</h1>
                         <h4 data-toc-skip class="author">Aryan Kamal,
-Charles Dussiau, Judith Zaugg</h4>
+Charles Dussiau, Amelia Kurti, Judith Zaugg</h4>
             
             <h4 data-toc-skip class="date">6 March 2026</h4>
       
@@ -138,11 +138,11 @@ Seurat object.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"counts"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-03-06 14:37:33] Assay 'RNA' found and set as default assay.</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:33] Starting entropy estimation for assay: RNA</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:33] Assay 'RNA' contains 80 cells and 230 features</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:33] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:33] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-03-06 15:00:02] Assay 'RNA' found and set as default assay.</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:02] Starting entropy estimation for assay: RNA</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:02] Assay 'RNA' contains 80 cells and 230 features</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:02] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:02] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): You're computing too large</span></span>
 <span><span class="co">## a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): did not converge--results</span></span>
@@ -176,8 +176,9 @@ Seurat object.</p>
 <span><span class="co">## Negative:  VDAC3, RP11-290F20.3, RUFY1, CD1C, HLA-DQA1, CA2, S100A8, PPBP, GNLY, SDPR</span></span></code></pre>
 <pre><code><span><span class="co">## Computing nearest neighbors</span></span></code></pre>
 <pre><code><span><span class="co">## Only one graph name supplied, storing nearest-neighbor graph only</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-03-06 14:37:33] Reading the precomputed table (counts mode)</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:37] Entropy matrix added to Seurat object as 'RNA_entropy'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-03-06 15:00:02] Reading the precomputed table (counts mode)</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:06] Entropy matrix added to Seurat object as 'RNA_entropy'.</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:06] Mean entropy added to metadata column 'entropy_mean_RNA'.</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="inspect-entropy-assay">Inspect entropy assay<a class="anchor" aria-label="anchor" href="#inspect-entropy-assay"></a>
@@ -218,11 +219,11 @@ and computes Shannon entropy.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"binary"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-03-06 14:37:37] Assay 'RNA' found and set as default assay.</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:37] Starting entropy estimation for assay: RNA</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:37] Assay 'RNA' contains 80 cells and 230 features</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:37] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:37] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-03-06 15:00:06] Assay 'RNA' found and set as default assay.</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:06] Starting entropy estimation for assay: RNA</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:06] Assay 'RNA' contains 80 cells and 230 features</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:06] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:06] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): You're computing too large</span></span>
 <span><span class="co">## a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): did not converge--results</span></span>
@@ -256,8 +257,8 @@ and computes Shannon entropy.</p>
 <span><span class="co">## Negative:  VDAC3, RP11-290F20.3, RUFY1, CD1C, HLA-DQA1, CA2, S100A8, PPBP, GNLY, SDPR</span></span></code></pre>
 <pre><code><span><span class="co">## Computing nearest neighbors</span></span></code></pre>
 <pre><code><span><span class="co">## Only one graph name supplied, storing nearest-neighbor graph only</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-03-06 14:37:37] Binarizing matrix (counts &gt; 0) for binary entropy.</span></span>
-<span><span class="co">## INFO [2026-03-06 14:37:37] Reading the binary entropy lookup (binary mode)</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-03-06 15:00:06] Binarizing matrix (counts &gt; 0) for binary entropy.</span></span>
+<span><span class="co">## INFO [2026-03-06 15:00:06] Reading the binary entropy lookup (binary mode)</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="inspect-binary-entropy-output">Inspect binary entropy output<a class="anchor" aria-label="anchor" href="#inspect-binary-entropy-output"></a>
@@ -296,7 +297,7 @@ and computes Shannon entropy.</p>
 
       <footer><div class="copyright">
   <p></p>
-<p>Developed by Aryan Kamal, Charles Dussiau, Judith Zaugg.</p>
+<p>Developed by Aryan Kamal, Charles Dussiau, Amelia Kurti, Judith Zaugg.</p>
 </div>
 
 <div class="pkgdown">

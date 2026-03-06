@@ -1,10 +1,11 @@
 Package: Entropy
 Type: Package
 Title: Entropy Estimation for Seurat Objects
-Version: 0.1.5
+Version: 0.1.6
 Authors@R: c(
     person("Aryan", "Kamal", email = "aryan.kamal@embl.de", role = c("aut", "cre")),
     person("Charles", "Dussiau", email = "charles.dussiau@embl.de", role = c("aut")),
+    person("Amelia", "Kurti", email = "amelia.kurti@dkfz-heidelberg.de", role = c("aut")),
     person("Judith", "Zaugg", email = "judith.zaugg@embl.de", role = "aut"))
 Maintainer: Aryan Kamal <aryan.kamal@embl.de>
 Description: This package provides methods to estimate transcriptional entropy

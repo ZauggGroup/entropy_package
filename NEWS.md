@@ -41,3 +41,11 @@ Updated function documentation and vignettes
 - Optimized binary entropy mode for accessibility data (e.g. ATAC-seq)
 - Binary entropy now uses sparse neighborhood 1-counts with a precomputed entropy lookup table
 - Added internal binary_entropy_lookup resource loaded in binary mode, with safe fallback for larger neighborhood sizes
+
+
+# Entropy 0.1.6
+- Updated neighborhood input API: replaced legacy `nn_list` / `nn.name` with the new `neighbors` + `neighbors_method` interface
+- Added support for computing neighborhoods from a different assay via the `neighbor_assay` parameter
+- Added mean entropy per cell automatically to Seurat metadata (`mean_entropy_{assay}`)
+- Added vignette explaining neighborhood definition (`auto`, `seurat`, and `custom` modes)
+- Improved documentation and pkgdown website structure
