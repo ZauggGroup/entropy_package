@@ -7,7 +7,7 @@
 #' @param seu A Seurat object.
 #' @param assay Character. Name of the assay to use.
 #' @param nn_list Optional named list of neighbor cell indices or names per cell. If NULL, neighbors are computed using PCA.
-#' @param output_path Optional character string. If provided, saves the full entropy matrix to this file (using `qs::qsave()`).
+#' @param output_path Optional character string. If provided, saves the full entropy matrix to this file (using `saveRDS`).
 #' @param add_assay Logical. If TRUE (default), adds the entropy matrix to the Seurat object as a new assay called `"{assay}_entropy"`.
 #' @param k.param Integer. Number of nearest neighbors to use when computing the neighbor graph. Default is 15.
 #' @param npca Integer. Number of PCA dimensions to use when computing neighbors. Default is 20.
@@ -77,14 +77,14 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
 
   if (mode == "counts") {
     futile.logger::flog.info("Reading the precomputed table (counts mode)")
-    .precomputed_bub <<- qs::qread(system.file(
-      "extdata", "precomputed_bub_5000.qs",
+    .precomputed_bub <<- readRDS(system.file(
+      "extdata", "precomputed_bub_5000.rds",
       package = "Entropy"
     ))
   } else if (mode == "binary") {
     futile.logger::flog.info("Reading the binary entropy lookup (binary mode)")
-    .binary_entropy_lookup <<- qs::qread(system.file(
-      "extdata", "binary_entropy_lookup_100.qs",
+    .binary_entropy_lookup <<- readRDS(system.file(
+      "extdata", "binary_entropy_lookup_100.rds",
       package = "Entropy"
     ))
   } else {
@@ -121,7 +121,7 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
 
 
   if (!is.null(output_path)) {
-    qsave(entropy_matrix, output_path)
+    saveRDS(entropy_matrix, output_path)
     futile.logger::flog.info("Entropy matrix saved to: %s", output_path)
   }
 

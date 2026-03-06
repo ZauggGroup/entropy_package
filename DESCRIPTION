@@ -28,7 +28,6 @@ Imports:
     dplyr,
     progress,
     pracma,
-    corpcor,
-    qs
+    corpcor
 Depends: 
     R (>= 2.10)

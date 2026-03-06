@@ -23,7 +23,7 @@ for (N in 1:40) {
 }
 
 
-qs::qsave(precomputed_bub, "inst/extdata/precomputed_bub_5000.qs")
+saveRDS(precomputed_bub, "inst/extdata/precomputed_bub_5000.rds")
 
 
 
@@ -42,7 +42,7 @@ build_binary_entropy_lookup <- function(max_k = 30) {
 }
 
 binary_entropy_lookup <- build_binary_entropy_lookup(100)
-qs::qsave(binary_entropy_lookup,
-          "inst/extdata/binary_entropy_lookup_100.qs")
+saveRDS(binary_entropy_lookup,
+          "inst/extdata/binary_entropy_lookup_100.rds")
 
 
