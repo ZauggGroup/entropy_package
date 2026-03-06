@@ -2,14 +2,14 @@
 % Please edit documentation in R/Internal_prepration.R
 \name{calculate_entropy_for_cell_binary_fast}
 \alias{calculate_entropy_for_cell_binary_fast}
-\title{Calculate binary entropy for a single cell based on its neighbors}
+\title{Calculate binary entropy for a single cell based on its neighbors (fast)}
 \usage{
 calculate_entropy_for_cell_binary_fast(
   cell_name,
   mat_bin,
   seu,
-  nn_list = NULL,
-  nn.name = NULL
+  neighbors,
+  neighbors_method
 )
 }
 \arguments{
@@ -19,16 +19,15 @@ calculate_entropy_for_cell_binary_fast(
 
 \item{seu}{Seurat object.}
 
-\item{nn_list}{Optional list mapping cell names to neighbor indices or names.}
+\item{neighbors}{Neighbor definition. Either a named list or a Seurat Neighbor object.}
 
-\item{nn.name}{Optional character. If neighbors are already present in the Seurat object,
-this specifies the name of the neighbor graph to use.}
+\item{neighbors_method}{Character. One of `"custom"` or `"seurat"`.}
 }
 \value{
 A numeric vector of entropy values for each feature.
 }
 \description{
-This internal helper function extracts the binary accessibility matrix of a cell's
-neighbors (0/1) and computes Shannon entropy per feature (Bernoulli p0/p1).
+This internal helper function computes binary entropy using a precomputed
+lookup table for fast evaluation when the neighborhood size is small.
 }
 \keyword{internal}

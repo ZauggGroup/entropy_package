@@ -7,11 +7,12 @@
 run_entropy(
   seu,
   assay,
-  nn_list = NULL,
-  nn.name = NULL,
+  neighbors = NULL,
+  neighbors_method = c("auto", "custom", "seurat"),
+  neighbor_assay = assay,
   output_path = NULL,
   add_assay = TRUE,
-  k.param = 15,
+  k = 15,
   npca = 20,
   nfeatures = 0,
   mode = c("counts", "binary")
@@ -20,39 +21,51 @@ run_entropy(
 \arguments{
 \item{seu}{A Seurat object.}
 
-\item{assay}{Character. Name of the assay to use.}
+\item{assay}{Character. Name of the assay used for entropy calculation.}
 
-\item{nn_list}{Optional named list of neighbor cell indices or names per cell. If NULL, neighbors are computed using PCA.}
+\item{neighbors}{Optional neighbor definition. If `neighbors_method = "custom"`,
+this should be a named list where `neighbors[[cell_name]]` returns a vector of
+neighbor cell names or indices. If `neighbors_method = "seurat"`, this should be
+a Seurat neighbor object. If `NULL` and `neighbors_method = "auto"`, neighbors
+are computed internally.}
 
-\item{nn.name}{Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).}
+\item{neighbors_method}{Character. How to obtain neighbors. One of `"auto"`,
+`"custom"`, or `"seurat"`. `"auto"` computes neighbors inside the function.
+`"custom"` uses the user-provided neighbor list in `neighbors`. `"seurat"`
+uses the user-provided Seurat neighbor object in `neighbors`.}
 
-\item{output_path}{Optional character string. If provided, saves the full entropy matrix to this file (using `qs::qsave()`).}
+\item{neighbor_assay}{Character. Assay to use for automatic neighbor computation
+when `neighbors_method = "auto"`. Defaults to `assay`.}
 
-\item{add_assay}{Logical. If TRUE (default), adds the entropy matrix to the Seurat object as a new assay called `"{assay}_entropy"`.}
+\item{output_path}{Optional character string. If provided, saves the full entropy
+matrix to this file using `saveRDS()`.}
 
-\item{k.param}{Integer. Number of nearest neighbors to use when computing the neighbor graph. Default is 15.}
+\item{add_assay}{Logical. If `TRUE` (default), adds the entropy matrix to the
+Seurat object as a new assay called `"{assay}_entropy"`.}
 
-\item{npca}{Integer. Number of PCA dimensions to use when computing neighbors. Default is 20.}
+\item{k}{Integer. Number of nearest neighbors to use when computing neighbors
+internally. Default is 15.}
 
-\item{nfeatures}{Integer. Number of variable features to select before PCA and neighbor finding. Default is 0.}
+\item{npca}{Integer. Number of PCA dimensions to use when computing neighbors
+internally. Default is 20.}
+
+\item{nfeatures}{Integer. Number of variable features to select before PCA-based
+neighbor computation. Default is 0.}
 
 \item{mode}{Character. Entropy mode. `"counts"` uses the count-based entropy estimator
 (BUB precomputed table). `"binary"` binarizes the assay counts (values > 0) and
-computes Shannon entropy for a Bernoulli distribution (p0/p1) across neighbors.
-Default is `"counts"`.}
+computes Shannon entropy for a Bernoulli distribution across neighbors.}
 }
 \value{
 If `add_assay = TRUE`, returns the modified Seurat object with a new assay
-        named `"{assay}_entropy"`. If `add_assay = FALSE`, returns a data frame
-        of mean entropy values per cell.
+  named `"{assay}_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
+  entropy values per cell.
 }
 \description{
 This function computes gene-level entropy across neighboring cells for a specified assay
 in a Seurat object. It optionally saves the entropy matrix to file and/or adds it as a
-new assay named `"assay_entropy"`.
+new assay named `"{assay}_entropy"`.
 }
 \examples{
-# Assuming `pbmc` is a Seurat object with an "RNA" assay:
-run_entropy(pbmc_small, assay = "RNA", k.param = 15, mode = "counts")
-run_entropy(pbmc_small, assay = "ATAC", k.param = 15, mode = "binary")
+run_entropy(pbmc_small, assay = "RNA", k = 15, mode = "counts")
 }

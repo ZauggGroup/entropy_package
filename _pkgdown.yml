@@ -18,6 +18,9 @@ navbar:
         - text: Full Workflow
           desc: Example of full entropy estimation pipeline
           href: articles/workflow.html
+        - text: Neighborhood
+          desc: Neighborhood definition and usage modes
+          href: articles/neighborhood.html
     - text: Reference
       href: reference/index.html
     - text: Changelog & News
@@ -30,6 +33,7 @@ articles:
     contents:
       - getting_started
       - workflow
+      - neighborhood
 
 reference:
   - title: Main Function

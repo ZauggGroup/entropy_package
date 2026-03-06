@@ -2,58 +2,183 @@
 #'
 #' This function computes gene-level entropy across neighboring cells for a specified assay
 #' in a Seurat object. It optionally saves the entropy matrix to file and/or adds it as a
-#' new assay named `"assay_entropy"`.
+#' new assay named `"{assay}_entropy"`.
 #'
 #' @param seu A Seurat object.
-#' @param assay Character. Name of the assay to use.
-#' @param nn_list Optional named list of neighbor cell indices or names per cell. If NULL, neighbors are computed using PCA.
-#' @param output_path Optional character string. If provided, saves the full entropy matrix to this file (using `saveRDS`).
-#' @param add_assay Logical. If TRUE (default), adds the entropy matrix to the Seurat object as a new assay called `"{assay}_entropy"`.
-#' @param k.param Integer. Number of nearest neighbors to use when computing the neighbor graph. Default is 15.
-#' @param npca Integer. Number of PCA dimensions to use when computing neighbors. Default is 20.
-#' @param nfeatures Integer. Number of variable features to select before PCA and neighbor finding. Default is 0.
-#' @param nn.name Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).
+#' @param assay Character. Name of the assay used for entropy calculation.
+#' @param neighbors Optional neighbor definition. If `neighbors_method = "custom"`,
+#'   this should be a named list where `neighbors[[cell_name]]` returns a vector of
+#'   neighbor cell names or indices. If `neighbors_method = "seurat"`, this should be
+#'   a Seurat neighbor object. If `NULL` and `neighbors_method = "auto"`, neighbors
+#'   are computed internally.
+#' @param neighbors_method Character. How to obtain neighbors. One of `"auto"`,
+#'   `"custom"`, or `"seurat"`. `"auto"` computes neighbors inside the function.
+#'   `"custom"` uses the user-provided neighbor list in `neighbors`. `"seurat"`
+#'   uses the user-provided Seurat neighbor object in `neighbors`.
+#' @param neighbor_assay Character. Assay to use for automatic neighbor computation
+#'   when `neighbors_method = "auto"`. Defaults to `assay`.
+#' @param output_path Optional character string. If provided, saves the full entropy
+#'   matrix to this file using `saveRDS()`.
+#' @param add_assay Logical. If `TRUE` (default), adds the entropy matrix to the
+#'   Seurat object as a new assay called `"{assay}_entropy"`.
+#' @param k Integer. Number of nearest neighbors to use when computing neighbors
+#'   internally. Default is 15.
+#' @param npca Integer. Number of PCA dimensions to use when computing neighbors
+#'   internally. Default is 20.
+#' @param nfeatures Integer. Number of variable features to select before PCA-based
+#'   neighbor computation. Default is 0.
 #' @param mode Character. Entropy mode. `"counts"` uses the count-based entropy estimator
 #'   (BUB precomputed table). `"binary"` binarizes the assay counts (values > 0) and
-#'   computes Shannon entropy for a Bernoulli distribution (p0/p1) across neighbors.
-#'   Default is `"counts"`.
+#'   computes Shannon entropy for a Bernoulli distribution across neighbors.
 #' @return If `add_assay = TRUE`, returns the modified Seurat object with a new assay
-#'         named `"{assay}_entropy"`. If `add_assay = FALSE`, returns a data frame
-#'         of mean entropy values per cell.
+#'   named `"{assay}_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
+#'   entropy values per cell.
 #' @export
 #'
 #' @examples
-#' # Assuming `pbmc` is a Seurat object with an "RNA" assay:
-#' run_entropy(pbmc_small, assay = "RNA", k.param = 15, mode = "counts")
-#' run_entropy(pbmc_small, assay = "ATAC", k.param = 15, mode = "binary")
-run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path = NULL, add_assay = TRUE, k.param = 15, npca = 20, nfeatures = 0, mode = c("counts", "binary")) {
+#' run_entropy(pbmc_small, assay = "RNA", k = 15, mode = "counts")
+run_entropy <- function(
+    seu,
+    assay,
+    neighbors = NULL,
+    neighbors_method = c("auto", "custom", "seurat"),
+    neighbor_assay = assay,
+    output_path = NULL,
+    add_assay = TRUE,
+    k = 15,
+    npca = 20,
+    nfeatures = 0,
+    mode = c("counts", "binary")
+){
 
 
-  futile.logger::flog.info("Starting entropy estimation for assay: %s", assay)
-  futile.logger::flog.info("Input Seurat object contains %d cells and %d features", ncol(seu), nrow(seu))
+  neighbors_method <- match.arg(neighbors_method)
+  mode <- match.arg(mode)
 
-
-  if (assay %in% Seurat::Assays(seu)) {
-    Seurat::DefaultAssay(seu) <- assay
-    futile.logger::flog.info("Assay '%s' found and set as default assay.", assay)
-  } else {
+  if (!assay %in% Seurat::Assays(seu)) {
     stop(sprintf("Assay '%s' not found in Seurat object.", assay))
   }
+  Seurat::DefaultAssay(seu) <- assay
+  futile.logger::flog.info("Assay '%s' found and set as default assay.", assay)
 
-  if( is.null(nn_list) ){
-    futile.logger::flog.info("No neighbor list provided. Computing neighbors using PCA reduction.")
-    num_pcs <- ncol(Seurat::Embeddings(seu[["pca"]]))
-    npca = min(npca,num_pcs)
-    seu <- Seurat::FindNeighbors(seu, reduction = "pca", dims = 1:npca, return.neighbor = TRUE, k.param = k.param)
-    if( nfeatures > 0 ){
-      futile.logger::flog.info("Selecting top %s variable features." , nfeatures)
-      seu <- Seurat::FindVariableFeatures(seu, nfeatures = nfeatures)
+  if (!neighbor_assay %in% Seurat::Assays(seu)) {
+    stop(sprintf("neighbor_assay '%s' not found in Seurat object.", neighbor_assay))
+  }
+
+  futile.logger::flog.info("Starting entropy estimation for assay: %s", assay)
+  futile.logger::flog.info(
+    "Assay '%s' contains %d cells and %d features",
+    assay, ncol(seu), nrow(seu)
+  )
+
+  if (neighbors_method == "auto") {
+
+    futile.logger::flog.info(
+      "No neighbors provided. Computing neighbors using assay '%s'.",
+      neighbor_assay
+    )
+
+    seu_neighbor <- seu
+    Seurat::DefaultAssay(seu_neighbor) <- neighbor_assay
+
+    reduction_name <- paste0("pca_", neighbor_assay)
+
+    if (!reduction_name %in% names(seu_neighbor@reductions)) {
+      futile.logger::flog.info(
+        "Reduction '%s' not found. Running PCA on assay '%s'.",
+        reduction_name, neighbor_assay
+      )
+
+      if (nfeatures > 0) {
+        futile.logger::flog.info("Selecting top %s variable features.", nfeatures)
+        seu_neighbor <- Seurat::FindVariableFeatures(seu_neighbor, nfeatures = nfeatures)
+      }
+
+      seu_neighbor <- Seurat::RunPCA(
+        seu_neighbor,
+        reduction.name = reduction_name,
+        reduction.key = paste0(tolower(reduction_name), "_")
+      )
     }
 
+    num_pcs <- ncol(Seurat::Embeddings(seu_neighbor[[reduction_name]]))
+    npca <- min(npca, num_pcs)
+
+    if (npca < 1) {
+      stop("No PCA dimensions available for neighbor computation.")
+    }
+
+    neighbor_name <- paste0("entropy_", neighbor_assay, "_nn")
+
+    seu_neighbor <- Seurat::FindNeighbors(
+      seu_neighbor,
+      reduction = reduction_name,
+      dims = 1:npca,
+      return.neighbor = TRUE,
+      k.param = k,
+      graph.name = neighbor_name
+    )
+
+    if (!neighbor_name %in% names(seu_neighbor@neighbors)) {
+      stop(
+        "Computed Neighbor object '", neighbor_name,
+        "' was not found in the Seurat object."
+      )
+    }
+
+    neighbors <- seu_neighbor@neighbors[[neighbor_name]]
+    neighbors_method <- "seurat"
+
+  } else if (neighbors_method == "custom") {
+    if (is.null(neighbors)) {
+      stop("`neighbors` must be provided when neighbors_method = 'custom'.")
+    }
+    if (!is.list(neighbors) || is.null(names(neighbors))) {
+      stop(
+        "`neighbors` must be a named list where neighbors[[cell_name]] ",
+        "returns a vector of neighbor cell names or indices."
+      )
+    }
+
+    cell_names <- colnames(seu)
+
+    missing_cells <- setdiff(cell_names, names(neighbors))
+
+    if (length(missing_cells) > 0) {
+      stop(
+        "The custom neighbors list is missing entries for ",
+        length(missing_cells), " cells.\n",
+        "Each cell must appear in names(neighbors), even if it has no neighbors.\n",
+        "Example structure:\n",
+        "neighbors[['cell1']] -> c('cell2','cell3',...)"
+      )
+    }
+    futile.logger::flog.info("Using user-provided custom neighbors.")
+
+  } else if (neighbors_method == "seurat") {
+    if (is.null(neighbors)) {
+      stop("`neighbors` must be provided when neighbors_method = 'seurat'.")
+    }
+
+    if (!inherits(neighbors, "Neighbor")) {
+      stop(
+        "For neighbors_method = 'seurat', `neighbors` must be a Seurat Neighbor object ",
+        "(e.g. the result of Seurat::FindNeighbors(..., return.neighbor = TRUE))."
+      )
+    }
+
+    if (!all(colnames(seu) %in% neighbors@cell.names)) {
+      stop("Cell names in Seurat object do not match the provided Seurat neighbor object.")
+    }
+
+    futile.logger::flog.info("Using user-provided Seurat neighbor object.")
   }
 
 
-  mat <- Seurat::GetAssayData(seu, layer = "counts")
+  ######################
+
+
+  mat <- Seurat::GetAssayData(seu, assay = assay, layer = "counts")
 
   if (mode == "binary") {
     futile.logger::flog.info("Binarizing matrix (counts > 0) for binary entropy.")
@@ -101,16 +226,16 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
         cell_name = cell_name,
         mat_bin   = mat_bin,
         seu       = seu,
-        nn_list   = nn_list,
-        nn.name   = nn.name
+        neighbors = neighbors,
+        neighbors_method = neighbors_method
       )
     } else {
       calculate_entropy_for_cell(
         cell_name = cell_name,
         mat       = mat,
         seu       = seu,
-        nn_list   = nn_list,
-        nn.name   = nn.name
+        neighbors = neighbors,
+        neighbors_method = neighbors_method
       )
     }
   })

@@ -8,8 +8,8 @@ calculate_entropy_for_cell_binary(
   cell_name,
   mat_bin,
   seu,
-  nn_list = NULL,
-  nn.name = NULL
+  neighbors,
+  neighbors_method
 )
 }
 \arguments{
@@ -19,10 +19,9 @@ calculate_entropy_for_cell_binary(
 
 \item{seu}{Seurat object.}
 
-\item{nn_list}{Optional list mapping cell names to neighbor indices or names.}
+\item{neighbors}{Neighbor definition. Either a named list or a Seurat Neighbor object.}
 
-\item{nn.name}{Optional character. If neighbors are already present in the Seurat object,
-this specifies the name of the neighbor graph to use.}
+\item{neighbors_method}{Character. One of `"custom"` or `"seurat"`.}
 }
 \value{
 A numeric vector of entropy values for each feature.

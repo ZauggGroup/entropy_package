@@ -7,7 +7,7 @@
 #'
 #' @return A single numeric entropy value.
 #' @keywords internal
-estimateur_bub_entropie_discrete <- function(X) {
+estimateur_bub_entropie_discrete <- function(X, force = FALSE) {
   if (sum(X) == 0) return(0)
 
   N <- length(X)
@@ -18,9 +18,10 @@ estimateur_bub_entropie_discrete <- function(X) {
 
   k_eff <- min(N, 11)
   #A <- get_bub_precomputed(N, m, k_max = 11)
-  if (N <= 40 && m <= 5000 && k_eff <= 12) {
+  if (force == FALSE && N <= 40 && m <= 5000 && k_eff <= 12) {
     A <- .precomputed_bub[[N]][[m + 1]][[k_eff]]
   } else {
+    print("calculatin")
     A <- bub_opti(N, m, k_eff)
   }
   H_BUB <- sum(A * hist_eff)

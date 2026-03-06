@@ -2,23 +2,25 @@
 % Please edit documentation in R/Internal_prepration.R
 \name{get_neighbors}
 \alias{get_neighbors}
-\title{Get neighbor indices for a cell from either a neighbor list or Seurat object}
+\title{Get neighbor indices for a cell from a custom list or Seurat Neighbor object}
 \usage{
-get_neighbors(cell_name, seu, nn_list = NULL, nn.name = NULL)
+get_neighbors(cell_name, seu, neighbors, neighbors_method)
 }
 \arguments{
-\item{cell_name}{Cell name (character)}
+\item{cell_name}{Cell name (character).}
 
-\item{seu}{Seurat object}
+\item{seu}{Seurat object.}
 
-\item{nn_list}{Optional list of neighbors by cell}
+\item{neighbors}{Neighbor definition. Either a named list where
+`neighbors[[cell_name]]` returns a vector of neighbor cell names or indices,
+or a Seurat Neighbor object.}
 
-\item{nn.name}{Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).}
+\item{neighbors_method}{Character. One of `"custom"` or `"seurat"`.}
 }
 \value{
-Integer vector of neighbor indices
+Integer vector of neighbor indices.
 }
 \description{
-Get neighbor indices for a cell from either a neighbor list or Seurat object
+Get neighbor indices for a cell from a custom list or Seurat Neighbor object
 }
 \keyword{internal}

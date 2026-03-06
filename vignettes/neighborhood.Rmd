@@ -1,0 +1,247 @@
+---
+title: "Neighborhood definition"
+author: "Aryan Kamal, Charles Dussiau, Judith Zaugg"
+date: "`r doc_date()`"
+package: "`r BiocStyle::pkg_ver('Entropy')`"
+output: BiocStyle::html_document
+vignette: >
+  %\VignetteIndexEntry{Neighborhood}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+Entropy estimation depends on the **local neighborhood of each cell**.  
+For every cell, entropy is computed using the expression values of its neighboring cells.
+
+The function `run_entropy()` supports **three different ways** to define these neighborhoods.
+
+- **auto** – neighbors are computed internally using PCA and k-nearest neighbors.
+- **seurat** – neighbors are supplied as a Seurat `Neighbor` object.
+- **custom** – neighbors are supplied manually as a named list.
+
+This vignette explains how to use each mode.
+
+---
+
+# Load libraries and example data
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+library(Entropy)
+library(Seurat)
+
+data("pbmc_small")
+DefaultAssay(pbmc_small) <- "RNA"
+```
+
+---
+
+# 1. Automatic neighborhood computation (`auto`)
+
+In `"auto"` mode, the entropy function computes the neighborhood internally.
+
+The steps performed internally are:
+
+1. PCA is computed on a chosen assay.
+2. A k-nearest neighbor graph is built using `Seurat::FindNeighbors()`.
+3. The resulting neighbors are used for entropy estimation.
+
+By default, neighbors are computed using the **same assay used for entropy calculation**.  
+However, it is often useful to compute neighbors using a **different assay**.
+
+For example:
+
+- entropy may be calculated on **raw RNA counts**
+- neighborhoods may be computed using **SCT-normalized data**
+
+This can be controlled using the parameter:
+
+```
+neighbor_assay
+```
+
+If not specified, `neighbor_assay` defaults to the same assay used for entropy.
+
+Example: neighbors automatically computed from the RNA assay.
+
+```{r}
+res_auto <- run_entropy(
+  seu = pbmc_small,
+  assay = "RNA",
+  neighbors = NULL,
+  neighbors_method = "auto",
+  add_assay = FALSE,
+  mode = "counts"
+)
+
+head(res_auto)
+```
+
+Example: compute entropy on RNA but build neighborhoods from the SCT assay.
+
+```{r}
+# example only (pbmc_small does not contain an SCT assay)
+# res_auto_sct <- run_entropy(
+#   seu = pbmc_small,
+#   assay = "RNA",
+#   neighbor_assay = "SCT",
+#   neighbors_method = "auto",
+#   add_assay = FALSE,
+#   mode = "counts"
+# )
+```
+
+Key parameters used in this mode:
+
+- `neighbors = NULL` → tells the function to compute neighbors automatically  
+- `neighbors_method = "auto"` → activates internal neighbor computation  
+- `neighbor_assay` → assay used to compute the neighbor graph  
+- `k` → number of nearest neighbors  
+- `npca` → number of PCA dimensions used for neighbor search 
+
+
+---
+
+# 2. Using a Seurat Neighbor object (`seurat`)
+
+In some workflows, neighbors may already be computed outside the entropy function.  
+For example, a user may want to reuse a neighbor graph already created during clustering.
+
+In this case, a **Seurat `Neighbor` object** can be passed directly.
+
+First we compute neighbors using Seurat.
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+pbmc_small <- RunPCA(pbmc_small)
+
+pbmc_small <- FindNeighbors(
+  pbmc_small,
+  reduction = "pca",
+  dims = 1:10,
+  return.neighbor = TRUE,
+  graph.name = "example_nn"
+)
+
+nn_obj <- pbmc_small@neighbors[["example_nn"]]
+```
+
+The object `nn_obj` is a **Seurat Neighbor object** that contains the indices of neighboring cells.
+
+We can now pass this object directly to `run_entropy()`.
+
+```{r}
+res_seurat <- run_entropy(
+  seu = pbmc_small,
+  assay = "RNA",
+  neighbors = nn_obj,
+  neighbors_method = "seurat",
+  add_assay = FALSE,
+  mode = "counts"
+)
+
+head(res_seurat)
+```
+
+Key parameters in this mode:
+
+- `neighbors = nn_obj` → the Seurat Neighbor object  
+- `neighbors_method = "seurat"` → tells the function how to interpret the object  
+
+This mode is useful when:
+
+- neighbors are already computed
+- a specific neighbor graph should be reused
+- entropy should match an existing analysis pipeline
+
+---
+
+# 3. Custom neighborhood list (`custom`)
+
+In `"custom"` mode, neighbors are supplied manually.
+
+The neighbors must be provided as a **named list** where:
+
+- each element corresponds to **one cell**
+- the **name of the element is the cell name**
+- the **value is a vector of neighbor cell names or indices**
+
+Example structure:
+
+```
+neighbors[["cell_A"]] = c("cell_B", "cell_C", "cell_D")
+neighbors[["cell_B"]] = c("cell_A", "cell_D", "cell_E")
+```
+
+Each cell must appear in the list.
+
+---
+
+## Creating a custom neighbor list
+
+To illustrate the structure, we convert the Seurat neighbor object into a custom list.
+
+```{r}
+cell_names <- colnames(pbmc_small)
+
+custom_neighbors <- setNames(
+  lapply(seq_along(cell_names), function(i) {
+    neighbor_idx <- nn_obj@nn.idx[i, ]
+    cell_names[neighbor_idx]
+  }),
+  cell_names
+)
+```
+
+---
+
+## Inspect the structure
+
+The list contains one entry per cell.
+
+```{r}
+custom_neighbors[1:3]
+```
+
+Example of a single element:
+
+```{r}
+custom_neighbors[[1]]
+```
+
+This vector contains the neighboring cells of the first cell.
+
+---
+
+## Run entropy using custom neighbors
+
+```{r}
+res_custom <- run_entropy(
+  seu = pbmc_small,
+  assay = "RNA",
+  neighbors = custom_neighbors,
+  neighbors_method = "custom",
+  add_assay = FALSE,
+  mode = "counts"
+)
+
+head(res_custom)
+```
+
+Key parameters:
+
+- `neighbors = custom_neighbors` → the neighbor list  
+- `neighbors_method = "custom"` → tells the function to interpret the list  
+
+---
+
+# Summary
+
+The entropy function supports three flexible ways to define neighborhoods:
+
+| Mode | Input | Typical use |
+|-----|-----|-----|
+| auto | none | simplest option, neighbors computed internally |
+| seurat | Seurat Neighbor object | reuse neighbors from Seurat workflows |
+| custom | named list | fully user-defined neighborhood structure |
+
+For most users, `"auto"` mode is recommended.  
+Advanced users can supply Seurat or custom neighbors to integrate entropy estimation into existing pipelines.

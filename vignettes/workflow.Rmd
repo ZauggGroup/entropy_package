@@ -1,5 +1,5 @@
 ---
-title: "Full Workflow: Estimate Gene Expression Entropy"
+title: "Full workflow: estimate gene expression entropy"
 author: "Aryan Kamal, Charles Dussiau, Judith Zaugg"
 date: "`r doc_date()`"
 package: "`r BiocStyle::pkg_ver('Entropy')`"
@@ -12,46 +12,80 @@ vignette: >
 
 This vignette demonstrates a complete example of how to use the `Entropy` package to compute entropy values for cells in a Seurat object.
 
----
-
-## 📦 Load libraries and data
+## Load libraries and data
 
 ```{r}
 library(Entropy)
 library(Seurat)
-```
 
-
-```{r}
 data("pbmc_small")
 DefaultAssay(pbmc_small) <- "RNA"
 ```
 
+## Run entropy in counts mode
+
 ```{r}
-result <- run_entropy(
+result_counts <- run_entropy(
   seu = pbmc_small,
   assay = "RNA",
-  nn_list = NULL,           # Automatically computes neighbors
-  output_path = NULL,       # Don’t save the full matrix for now
-  add_assay = TRUE, 
-  mode = "counts"        # Add entropy matrix as a new assay
+  neighbors = NULL,
+  neighbors_method = "auto",
+  output_path = NULL,
+  add_assay = TRUE,
+  mode = "counts"
 )
 ```
 
+## Inspect entropy assay
+
 ```{r}
-# Check the added assay
-result[["RNA_entropy"]]
-
-# Visualize mean entropy per cell
-means <- colMeans(GetAssayData(result[["RNA_entropy"]]))
-hist(means, main = "Entropy distribution", xlab = "Mean entropy", col = "steelblue")
-
+result_counts[["RNA_entropy"]]
 ```
 
+## Visualize entropy distribution
 
+```{r}
+means_counts <- colMeans(GetAssayData(result_counts[["RNA_entropy"]], layer = "counts"))
 
+hist(
+  means_counts,
+  main = "Counts entropy distribution",
+  xlab = "Mean entropy",
+  col = "steelblue"
+)
+```
 
+## Run entropy in binary mode
 
+Binary mode binarizes the count matrix (`counts > 0`) and computes Shannon entropy.
 
+```{r}
+result_binary <- run_entropy(
+  seu = pbmc_small,
+  assay = "RNA",
+  neighbors = NULL,
+  neighbors_method = "auto",
+  output_path = NULL,
+  add_assay = FALSE,
+  mode = "binary"
+)
+```
+
+## Inspect binary entropy output
+
+```{r}
+head(result_binary)
+```
+
+## Visualize binary entropy distribution
+
+```{r}
+hist(
+  result_binary[[1]],
+  main = "Binary entropy distribution",
+  xlab = "Mean entropy",
+  col = "darkorange"
+)
+```
 
 

@@ -4,7 +4,7 @@
 \alias{calculate_entropy_for_cell}
 \title{Calculate entropy for a single cell based on its neighbors}
 \usage{
-calculate_entropy_for_cell(cell_name, mat, seu, nn_list = NULL, nn.name = NULL)
+calculate_entropy_for_cell(cell_name, mat, seu, neighbors, neighbors_method)
 }
 \arguments{
 \item{cell_name}{Character. Name of the cell to compute entropy for.}
@@ -13,9 +13,9 @@ calculate_entropy_for_cell(cell_name, mat, seu, nn_list = NULL, nn.name = NULL)
 
 \item{seu}{Seurat object.}
 
-\item{nn_list}{Optional list mapping cell names to neighbor indices or names.}
+\item{neighbors}{Neighbor definition. Either a named list or a Seurat Neighbor object.}
 
-\item{nn.name}{Optional character. If neighbors are already present in the Seurat object, this specifies the name of the neighbor graph to use (e.g. `"SCT"` or `"RNA"`).}
+\item{neighbors_method}{Character. One of `"custom"` or `"seurat"`.}
 }
 \value{
 A numeric vector of entropy values for each gene.

@@ -4,7 +4,7 @@
 \alias{estimateur_bub_entropie_discrete}
 \title{Internal: Cached wrapper for the BUB discrete entropy estimator}
 \usage{
-estimateur_bub_entropie_discrete(X)
+estimateur_bub_entropie_discrete(X, force = FALSE)
 }
 \arguments{
 \item{X}{Integer vector. The discrete data to estimate entropy for.}
