@@ -31,3 +31,13 @@ Updated function documentation and vignettes
 
 # Entropy 0.1.3
   Speed improvements
+
+# Entropy 0.1.4
+- Added binary entropy mode for accessibility data (e.g. ATAC-seq)
+- Supports Bernoulli (0/1) entropy across cell neighborhoods
+- New `mode` argument in `run_entropy()` to switch between count-based and binary entropy
+
+# Entropy 0.1.5
+- Optimized binary entropy mode for accessibility data (e.g. ATAC-seq)
+- Binary entropy now uses sparse neighborhood 1-counts with a precomputed entropy lookup table
+- Added internal binary_entropy_lookup resource loaded in binary mode, with safe fallback for larger neighborhood sizes

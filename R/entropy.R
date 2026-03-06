@@ -57,9 +57,7 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
 
   if (mode == "binary") {
     futile.logger::flog.info("Binarizing matrix (counts > 0) for binary entropy.")
-    mat_bin <- (mat > 0)
-    # keep sparse + numeric
-    mat_bin <- Matrix::Matrix(mat_bin * 1, sparse = TRUE)
+    mat_bin <- Matrix::Matrix(mat > 0, sparse = TRUE)
   }
 
   # Get all cell names
@@ -83,8 +81,14 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
       "extdata", "precomputed_bub_5000.qs",
       package = "Entropy"
     ))
+  } else if (mode == "binary") {
+    futile.logger::flog.info("Reading the binary entropy lookup (binary mode)")
+    .binary_entropy_lookup <<- qs::qread(system.file(
+      "extdata", "binary_entropy_lookup_100.qs",
+      package = "Entropy"
+    ))
   } else {
-    futile.logger::flog.info("Skipping precomputed BUB table (binary mode)")
+    stop("Unknown mode: ", mode, ". Expected 'counts' or 'binary'.")
   }
 
 
@@ -93,7 +97,7 @@ run_entropy <- function(seu, assay, nn_list = NULL, nn.name = NULL, output_path 
     pb$tick()
 
     if (mode == "binary") {
-      calculate_entropy_for_cell_binary(
+      calculate_entropy_for_cell_binary_fast(
         cell_name = cell_name,
         mat_bin   = mat_bin,
         seu       = seu,

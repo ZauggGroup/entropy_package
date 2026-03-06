@@ -30,6 +30,19 @@ qs::qsave(precomputed_bub, "inst/extdata/precomputed_bub_5000.qs")
 
 
 
+build_binary_entropy_lookup <- function(max_k = 30) {
+  lookup <- vector("list", max_k)
+  for (k in seq_len(max_k)) {
+    p <- (0:k) / k
+    H <- -(p * log2(p) + (1 - p) * log2(1 - p))
+    H[!is.finite(H)] <- 0
+    lookup[[k]] <- H
+  }
+  lookup
+}
 
+binary_entropy_lookup <- build_binary_entropy_lookup(100)
+qs::qsave(binary_entropy_lookup,
+          "inst/extdata/binary_entropy_lookup_100.qs")
 
 

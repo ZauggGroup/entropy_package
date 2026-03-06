@@ -90,9 +90,61 @@ calculate_entropy_for_cell_binary <- function(cell_name, mat_bin, seu, nn_list =
   return(ent)
 }
 
+#' Calculate binary entropy for a single cell based on its neighbors
+#'
+#' This internal helper function extracts the binary accessibility matrix of a cell's
+#' neighbors (0/1) and computes Shannon entropy per feature (Bernoulli p0/p1).
+#'
+#' @param cell_name Character. Name of the cell to compute entropy for.
+#' @param mat_bin Matrix. Binary matrix (features x cells), values in {0,1}.
+#' @param seu Seurat object.
+#' @param nn_list Optional list mapping cell names to neighbor indices or names.
+#' @param nn.name Optional character. If neighbors are already present in the Seurat object,
+#'   this specifies the name of the neighbor graph to use.
+#'
+#' @return A numeric vector of entropy values for each feature.
+#' @keywords internal
+calculate_entropy_for_cell_binary_fast <- function(cell_name, mat_bin, seu, nn_list = NULL, nn.name = NULL) {
+
+  neighbors_idx <- get_neighbors(cell_name, seu, nn_list, nn.name)
+  n <- length(neighbors_idx)
+  if (n < 1) stop("No neighbors found for cell: ", cell_name)
+
+  counts <- rowCounts_CSC_cols(mat_bin, neighbors_idx)
+  # FAST PATH: lookup available (e.g. n <= 100)
+  if (n <= length(.binary_entropy_lookup)) {
+    ent <- .binary_entropy_lookup[[n]][counts + 1L]
+  } else {
+    # FALLBACK: compute directly (rare)
+    p1 <- counts / n
+    ent <- -(p1 * log2(p1) + (1 - p1) * log2(1 - p1))
+    ent[p1 == 0 | p1 == 1] <- 0
+  }
+
+  names(ent) <- rownames(mat_bin)
+  ent
+}
 
 
 
+rowCounts_CSC_cols <- function(x, cols) {
+
+  counts <- integer(nrow(x))
+  p <- x@p
+  i <- x@i
+
+  for (j in cols) {
+    start <- p[j] + 1L
+    end   <- p[j + 1L]
+
+    if (start <= end) {
+      idx <- i[start:end] + 1L
+      counts[idx] <- counts[idx] + 1L
+    }
+  }
+
+  counts
+}
 
 
 
