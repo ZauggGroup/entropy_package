@@ -4,30 +4,19 @@
 \alias{calculate_entropy_for_cell_binary_fast}
 \title{Calculate binary entropy for a single cell based on its neighbors (fast)}
 \usage{
-calculate_entropy_for_cell_binary_fast(
-  cell_name,
-  mat_bin,
-  seu,
-  neighbors,
-  neighbors_method
-)
+calculate_entropy_for_cell_binary_fast(cell_name, mat_bin, neighbors_idx)
 }
 \arguments{
 \item{cell_name}{Character. Name of the cell to compute entropy for.}
 
 \item{mat_bin}{Matrix. Binary matrix (features x cells), values in {0,1}.}
 
-\item{seu}{Seurat object.}
-
-\item{neighbors}{Neighbor definition. Either a named list or a Seurat Neighbor object.}
-
-\item{neighbors_method}{Character. One of `"custom"` or `"seurat"`.}
+\item{neighbors_idx}{Integer vector of neighbor indices into mat_bin.}
 }
 \value{
 A numeric vector of entropy values for each feature.
 }
 \description{
-This internal helper function computes binary entropy using a precomputed
-lookup table for fast evaluation when the neighborhood size is small.
+Calculate binary entropy for a single cell based on its neighbors (fast)
 }
 \keyword{internal}

@@ -4,24 +4,19 @@
 \alias{calculate_entropy_for_cell}
 \title{Calculate entropy for a single cell based on its neighbors}
 \usage{
-calculate_entropy_for_cell(cell_name, mat, seu, neighbors, neighbors_method)
+calculate_entropy_for_cell(cell_name, mat, neighbors_idx)
 }
 \arguments{
 \item{cell_name}{Character. Name of the cell to compute entropy for.}
 
 \item{mat}{Matrix. Expression matrix (genes x cells).}
 
-\item{seu}{Seurat object.}
-
-\item{neighbors}{Neighbor definition. Either a named list or a Seurat Neighbor object.}
-
-\item{neighbors_method}{Character. One of `"custom"` or `"seurat"`.}
+\item{neighbors_idx}{Integer vector of neighbor indices into mat.}
 }
 \value{
 A numeric vector of entropy values for each gene.
 }
 \description{
-This internal helper function extracts the expression matrix of a cell's neighbors
-and computes entropy for each gene using the specified estimator.
+Calculate entropy for a single cell based on its neighbors
 }
 \keyword{internal}

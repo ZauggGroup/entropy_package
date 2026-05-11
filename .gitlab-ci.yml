@@ -9,6 +9,7 @@ pages:
     - R -e "remotes::install_deps(dependencies = TRUE)"
     - R -e "remotes::install_local('.', dependencies = TRUE)"
     - R -e "install.packages('pkgdown')"
+    - R -e "install.packages('devtools')"
     - R -e "devtools::document()"
     - R -e "pkgdown::build_site()"
     - mv docs public

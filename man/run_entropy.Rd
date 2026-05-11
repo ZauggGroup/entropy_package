@@ -15,7 +15,11 @@ run_entropy(
   k = 15,
   npca = 20,
   nfeatures = 0,
-  mode = c("counts", "binary")
+  mode = c("counts", "binary"),
+  chunk_method = c("none", "auto"),
+  chunk_cells = 2000,
+  parallelize = FALSE,
+  n_cores = parallel::detectCores() - 1L
 )
 }
 \arguments{
@@ -55,6 +59,23 @@ neighbor computation. Default is 0.}
 \item{mode}{Character. Entropy mode. `"counts"` uses the count-based entropy estimator
 (BUB precomputed table). `"binary"` binarizes the assay counts (values > 0) and
 computes Shannon entropy for a Bernoulli distribution across neighbors.}
+
+\item{chunk_method}{Character. Whether to use chunked computation.
+One of `"none"` or `"auto"`. `"none"` uses the standard approach (default).
+`"auto"` splits cells into biologically similar groups and processes
+each group independently, significantly reducing memory and runtime
+for large datasets. Recommended for datasets with more than 10,000 cells.}
+
+\item{chunk_cells}{Integer. Maximum number of cells per chunk when
+`chunk_method = "auto"`. Defaults to 2000. Values between 1000 and 5000
+are recommended.}
+
+\item{parallelize}{Logical. Whether to parallelize chunk processing across
+multiple cores. Only applies when \code{chunk_method = "auto"}.
+Defaults to \code{FALSE}. Not supported on Windows.}
+
+\item{n_cores}{Integer. Number of cores to use when \code{parallelize = TRUE}.
+Defaults to \code{parallel::detectCores() - 1}.}
 }
 \value{
 If `add_assay = TRUE`, returns the modified Seurat object with a new assay
