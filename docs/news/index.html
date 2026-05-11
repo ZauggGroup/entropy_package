@@ -23,7 +23,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.6</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
       </span>
     </div>
 
@@ -118,6 +118,15 @@
 <li>Added vignette explaining neighborhood definition (<code>auto</code>, <code>seurat</code>, and <code>custom</code> modes)</li>
 <li>Improved documentation and pkgdown website structure</li>
 </ul></div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.2.0" id="entropy-020">Entropy 0.2.0<a class="anchor" aria-label="anchor" href="#entropy-020"></a></h2>
+<div class="section level3">
+<h3 id="performance-improvements-0-2-0">Performance improvements<a class="anchor" aria-label="anchor" href="#performance-improvements-0-2-0"></a></h3>
+<ul><li>
+<code><a href="../reference/run_entropy.html">run_entropy()</a></code> now supports a chunking strategy (<code>chunk_method = "auto"</code>) that groups cells into biologically similar chunks using Leiden clustering. This reduces memory pressure and computation time significantly for large datasets.</li>
+<li>Added parallelization support via the <code>n_cores</code> argument in <code><a href="../reference/run_entropy.html">run_entropy()</a></code>.</li>
+</ul></div>
+</div>
   </div>
 
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">

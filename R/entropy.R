@@ -30,6 +30,19 @@
 #' @param mode Character. Entropy mode. `"counts"` uses the count-based entropy estimator
 #'   (BUB precomputed table). `"binary"` binarizes the assay counts (values > 0) and
 #'   computes Shannon entropy for a Bernoulli distribution across neighbors.
+#' @param chunk_method Character. Whether to use chunked computation.
+#'   One of `"none"` or `"auto"`. `"none"` uses the standard approach (default).
+#'   `"auto"` splits cells into biologically similar groups and processes
+#'   each group independently, significantly reducing memory and runtime
+#'   for large datasets. Recommended for datasets with more than 10,000 cells.
+#' @param chunk_cells Integer. Maximum number of cells per chunk when
+#'   `chunk_method = "auto"`. Defaults to 2000. Values between 1000 and 5000
+#'   are recommended.
+#' @param parallelize Logical. Whether to parallelize chunk processing across
+#'   multiple cores. Only applies when \code{chunk_method = "auto"}.
+#'   Defaults to \code{FALSE}. Not supported on Windows.
+#' @param n_cores Integer. Number of cores to use when \code{parallelize = TRUE}.
+#'   Defaults to \code{parallel::detectCores() - 1}.
 #' @return If `add_assay = TRUE`, returns the modified Seurat object with a new assay
 #'   named `"{assay}_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
 #'   entropy values per cell.
@@ -48,12 +61,17 @@ run_entropy <- function(
     k = 15,
     npca = 20,
     nfeatures = 0,
-    mode = c("counts", "binary")
+    mode = c("counts", "binary"),
+    chunk_method = c("none", "auto"),
+    chunk_cells = 2000,
+    parallelize = FALSE,
+    n_cores = parallel::detectCores() - 1L
 ){
 
 
   neighbors_method <- match.arg(neighbors_method)
   mode <- match.arg(mode)
+  chunk_method <- match.arg(chunk_method)
 
   if (!assay %in% Seurat::Assays(seu)) {
     stop(sprintf("Assay '%s' not found in Seurat object.", assay))
@@ -71,6 +89,77 @@ run_entropy <- function(
     assay, ncol(seu), nrow(seu)
   )
 
+  ### check parallelization
+
+  if (parallelize && chunk_method == "none") {
+    futile.logger::flog.warn(
+      "parallelize = TRUE has no effect when chunk_method = 'none'."
+    )
+  }
+
+  if (parallelize && .Platform$OS.type == "windows") {
+    futile.logger::flog.warn(
+      "parallelize = TRUE is not supported on Windows. Falling back to sequential."
+    )
+    parallelize <- FALSE
+  }
+
+  if (parallelize && n_cores > parallel::detectCores() - 1L) {
+    futile.logger::flog.warn(
+      "n_cores = %d exceeds available cores. Setting to %d.",
+      n_cores, parallel::detectCores() - 1L
+    )
+    n_cores <- parallel::detectCores() - 1L
+  }
+
+  if (parallelize && n_cores < 1L) {
+    stop("n_cores must be at least 1.")
+  }
+
+
+  ### chunk check
+  n_cells <- ncol(seu)
+
+  if (chunk_method == "none" && n_cells > 50000) {
+    futile.logger::flog.warn(
+      "Dataset has %d cells but chunk_method = 'none'. This may be very slow. Consider setting chunk_method = 'auto'.",
+      n_cells
+    )
+  }
+
+  if (chunk_method == "auto") {
+
+    if (!is.numeric(chunk_cells) || length(chunk_cells) != 1 || chunk_cells != as.integer(chunk_cells)) {
+      stop("chunk_cells must be a single integer.")
+    }
+
+    if (chunk_cells < 500) {
+      stop(
+        sprintf("chunk_cells = %d is too low. Minimum recommended value is 500. Very small chunks increase overhead without benefit.", chunk_cells)
+      )
+    }
+
+    if (chunk_cells > 10000) {
+      futile.logger::flog.warn(
+        "chunk_cells = %d is very large. Chunks may not be small enough to provide a speedup. Values between 1000 and 5000 are recommended.",
+        chunk_cells
+      )
+    }
+
+    if (n_cells < chunk_cells * 2) {
+      futile.logger::flog.warn(
+        "Dataset has %d cells which is too small to benefit from chunking with chunk_cells = %d. Falling back to chunk_method = 'none'.",
+        n_cells, chunk_cells
+      )
+      chunk_method <- "none"
+    }
+
+  }
+
+  #### Chunk check finished
+
+
+  ## NN creation
   if (neighbors_method == "auto") {
 
     futile.logger::flog.info(
@@ -140,6 +229,9 @@ run_entropy <- function(
       )
     }
 
+
+
+
     cell_names <- colnames(seu)
 
     missing_cells <- setdiff(cell_names, names(neighbors))
@@ -175,7 +267,7 @@ run_entropy <- function(
   }
 
 
-  ######################
+  ###################### NN finish
 
 
   mat <- Seurat::GetAssayData(seu, assay = assay, layer = "counts")
@@ -199,7 +291,7 @@ run_entropy <- function(
 
   #.data_loaded <<- FALSE
 
-
+  ## prepare matrix
   if (mode == "counts") {
     futile.logger::flog.info("Reading the precomputed table (counts mode)")
     .precomputed_bub <<- readRDS(system.file(
@@ -216,33 +308,81 @@ run_entropy <- function(
     stop("Unknown mode: ", mode, ". Expected 'counts' or 'binary'.")
   }
 
+  #### Prepare chunks
+  if (chunk_method == "auto") {
+    futile.logger::flog.info("Preparing chunks for chunked computation.")
+    chunks <- prepare_chunks(seu, chunk_cells = chunk_cells, npca = npca, neighbor_assay = neighbor_assay)
+  }
 
   # Apply with progress
-  entropy_matrix_list <- lapply(cell_names, function(cell_name) {
-    pb$tick()
+  entropy_matrix <- matrix(
+    0,
+    nrow     = nrow(mat),
+    ncol     = n_cells,
+    dimnames = list(rownames(mat), cell_names)
+  )
 
-    if (mode == "binary") {
-      calculate_entropy_for_cell_binary_fast(
-        cell_name = cell_name,
-        mat_bin   = mat_bin,
-        seu       = seu,
-        neighbors = neighbors,
-        neighbors_method = neighbors_method
-      )
-    } else {
-      calculate_entropy_for_cell(
-        cell_name = cell_name,
-        mat       = mat,
-        seu       = seu,
-        neighbors = neighbors,
-        neighbors_method = neighbors_method
-      )
+  if (chunk_method == "none") {
+    for (i in seq_along(cell_names)) {
+      cell_name <- cell_names[i]
+      if (i %% 100 == 0) pb$tick(100)
+      nn_idx <- get_neighbors(cell_name, seu, neighbors, neighbors_method)
+      if (mode == "binary") {
+        entropy_matrix[, cell_name] <- calculate_entropy_for_cell_binary_fast(
+          cell_name = cell_name, mat_bin = mat_bin, neighbors_idx = nn_idx)
+      } else {
+        entropy_matrix[, cell_name] <- calculate_entropy_for_cell(
+          cell_name = cell_name, mat = mat, neighbors_idx = nn_idx)
+      }
     }
-  })
+    if (n_cells %% 100 != 0) pb$tick(n_cells %% 100)
+  } else {
+    run_chunk <- function(chunk_cell_names) {
+      all_nn_idx <- unique(unlist(lapply(chunk_cell_names, function(cell) {
+        get_neighbors(cell, seu, neighbors, neighbors_method)
+      })))
+      if (mode == "binary") {
+        mat_chunk <- mat_bin[, all_nn_idx, drop = FALSE]
+      } else {
+        mat_chunk <- mat[, all_nn_idx, drop = FALSE]
+      }
+      idx_remap <- setNames(seq_along(all_nn_idx), all_nn_idx)
+      chunk_matrix <- matrix(
+        0,
+        nrow     = nrow(mat),
+        ncol     = length(chunk_cell_names),
+        dimnames = list(rownames(mat), chunk_cell_names)
+      )
+      for (cell_name in chunk_cell_names) {
+        nn_idx_full  <- get_neighbors(cell_name, seu, neighbors, neighbors_method)
+        nn_idx_chunk <- as.integer(idx_remap[as.character(nn_idx_full)])
+        if (mode == "binary") {
+          chunk_matrix[, cell_name] <- calculate_entropy_for_cell_binary_fast(
+            cell_name = cell_name, mat_bin = mat_chunk, neighbors_idx = nn_idx_chunk)
+        } else {
+          chunk_matrix[, cell_name] <- calculate_entropy_for_cell(
+            cell_name = cell_name, mat = mat_chunk, neighbors_idx = nn_idx_chunk)
+        }
+      }
+      chunk_matrix
+    }
+    if (parallelize) {
+      futile.logger::flog.info("Running chunks in parallel with %d cores.", n_cores)
+      chunk_results <- parallel::mclapply(chunks, run_chunk, mc.cores = n_cores)
+    } else {
+      futile.logger::flog.info("Running chunks sequentially.")
+      chunk_results <- lapply(chunks, function(chunk_cell_names) {
+        pb$tick(length(chunk_cell_names))
+        run_chunk(chunk_cell_names)
+      })
+    }
 
-  names(entropy_matrix_list) <- cell_names
+    for (i in seq_along(chunk_results)) {
+      chunk_cell_names <- colnames(chunk_results[[i]])
+      entropy_matrix[, chunk_cell_names] <- chunk_results[[i]]
+    }
+  }
 
-  entropy_matrix <- do.call(cbind, entropy_matrix_list)
 
 
   if (!is.null(output_path)) {
@@ -275,7 +415,6 @@ run_entropy <- function(
     return(seu)
 
   } else {
-
     means <- colMeans(entropy_matrix)
     Ent_mean <- as.data.frame(means)
     return(Ent_mean)

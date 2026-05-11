@@ -49,3 +49,14 @@ Updated function documentation and vignettes
 - Added mean entropy per cell automatically to Seurat metadata (`mean_entropy_{assay}`)
 - Added vignette explaining neighborhood definition (`auto`, `seurat`, and `custom` modes)
 - Improved documentation and pkgdown website structure
+
+
+# Entropy 0.2.0
+
+## Performance improvements
+
+* `run_entropy()` now supports a chunking strategy (`chunk_method = "auto"`) that groups
+  cells into biologically similar chunks using Leiden clustering. This reduces memory
+  pressure and computation time significantly for large datasets.
+* Added parallelization support via the `n_cores` argument in `run_entropy()`.
+

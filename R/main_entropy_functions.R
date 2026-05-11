@@ -21,7 +21,7 @@ estimateur_bub_entropie_discrete <- function(X, force = FALSE) {
   if (force == FALSE && N <= 40 && m <= 5000 && k_eff <= 12) {
     A <- .precomputed_bub[[N]][[m + 1]][[k_eff]]
   } else {
-    print("calculatin")
+    #print("calculating")
     A <- bub_opti(N, m, k_eff)
   }
   H_BUB <- sum(A * hist_eff)
