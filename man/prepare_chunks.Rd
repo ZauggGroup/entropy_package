@@ -4,16 +4,20 @@
 \alias{prepare_chunks}
 \title{Internal: Prepare cell chunks for chunked entropy computation}
 \usage{
-prepare_chunks(seu, chunk_cells, npca, neighbor_assay)
+prepare_chunks(seu, chunk_cells, reduction, dims, neighbor_assay)
 }
 \arguments{
 \item{seu}{A Seurat object.}
 
 \item{chunk_cells}{Integer. Maximum number of cells per chunk.}
 
-\item{npca}{Integer. Number of PCA dimensions to use.}
+\item{reduction}{Character. Name of an existing dimensional reduction in
+`seu` to use. Must already exist (resolved by the caller).}
 
-\item{neighbor_assay}{Character. Assay to use for PCA and clustering.}
+\item{dims}{Integer vector. Dimensions of `reduction` to use for clustering
+and k-means sub-splitting.}
+
+\item{neighbor_assay}{Character. Assay to set as default for clustering.}
 }
 \value{
 A list where each element is a character vector of cell names
@@ -22,6 +26,6 @@ A list where each element is a character vector of cell names
 \description{
 Splits cells into biologically similar chunks using Leiden clustering.
 Clusters larger than chunk_cells are split into sub-chunks using k-means
-on PCA embeddings within the cluster.
+on the reduction embeddings within the cluster.
 }
 \keyword{internal}

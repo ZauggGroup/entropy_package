@@ -96,7 +96,7 @@ Key parameters used in this mode:
 - `neighbors_method = "auto"` → activates internal neighbor computation  
 - `neighbor_assay` → assay used to compute the neighbor graph  
 - `k` → number of nearest neighbors  
-- `npca` → number of PCA dimensions used for neighbor search 
+- `dims` → dimensions of the reduction to use. A single number `n` means `1:n`, a vector like `2:20` is used as given (useful for ATAC/LSI where component 1 tracks sequencing depth).
 
 
 ---

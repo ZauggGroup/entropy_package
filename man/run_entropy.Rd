@@ -10,10 +10,12 @@ run_entropy(
   neighbors = NULL,
   neighbors_method = c("auto", "custom", "seurat"),
   neighbor_assay = assay,
+  features = NULL,
   output_path = NULL,
   add_assay = TRUE,
   k = 15,
-  npca = 20,
+  reduction = NULL,
+  dims = 20,
   nfeatures = 0,
   mode = c("counts", "binary"),
   chunk_method = c("none", "auto"),
@@ -41,6 +43,12 @@ uses the user-provided Seurat neighbor object in `neighbors`.}
 \item{neighbor_assay}{Character. Assay to use for automatic neighbor computation
 when `neighbors_method = "auto"`. Defaults to `assay`.}
 
+\item{features}{Optional character vector of feature names (e.g. genes) to
+restrict the entropy computation to. If `NULL` (default), entropy is
+computed for all features in `assay`. Subsetting applies only to `assay`
+(the scored features), not to `neighbor_assay` (which defines neighborhoods).
+In `"counts"` mode this also reduces runtime proportionally.}
+
 \item{output_path}{Optional character string. If provided, saves the full entropy
 matrix to this file using `saveRDS()`.}
 
@@ -50,8 +58,16 @@ Seurat object as a new assay called `"{assay}_entropy"`.}
 \item{k}{Integer. Number of nearest neighbors to use when computing neighbors
 internally. Default is 15.}
 
-\item{npca}{Integer. Number of PCA dimensions to use when computing neighbors
-internally. Default is 20.}
+\item{reduction}{Character. Name of an existing dimensional reduction in
+`seu` to use for neighbor and chunk computation (e.g. `"lsi"` for ATAC).
+If `NULL` (default), a PCA named `"pca_<neighbor_assay>"` is computed on
+`neighbor_assay` and used.}
+
+\item{dims}{Integer vector or single integer. Dimensions of `reduction` to
+use. A single value `n` is treated as `1:n` (so `dims = 20` means `1:20`).
+A vector is used as given, so `dims = 2:20` skips the first component
+(useful for LSI/ATAC, where component 1 mostly tracks sequencing depth).
+Default is 20.}
 
 \item{nfeatures}{Integer. Number of variable features to select before PCA-based
 neighbor computation. Default is 0.}

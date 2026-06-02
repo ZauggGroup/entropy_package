@@ -17,14 +17,26 @@
 #'   uses the user-provided Seurat neighbor object in `neighbors`.
 #' @param neighbor_assay Character. Assay to use for automatic neighbor computation
 #'   when `neighbors_method = "auto"`. Defaults to `assay`.
+#' @param features Optional character vector of feature names (e.g. genes) to
+#'   restrict the entropy computation to. If `NULL` (default), entropy is
+#'   computed for all features in `assay`. Subsetting applies only to `assay`
+#'   (the scored features), not to `neighbor_assay` (which defines neighborhoods).
+#'   In `"counts"` mode this also reduces runtime proportionally.
 #' @param output_path Optional character string. If provided, saves the full entropy
 #'   matrix to this file using `saveRDS()`.
 #' @param add_assay Logical. If `TRUE` (default), adds the entropy matrix to the
 #'   Seurat object as a new assay called `"{assay}_entropy"`.
 #' @param k Integer. Number of nearest neighbors to use when computing neighbors
 #'   internally. Default is 15.
-#' @param npca Integer. Number of PCA dimensions to use when computing neighbors
-#'   internally. Default is 20.
+#' @param reduction Character. Name of an existing dimensional reduction in
+#'   `seu` to use for neighbor and chunk computation (e.g. `"lsi"` for ATAC).
+#'   If `NULL` (default), a PCA named `"pca_<neighbor_assay>"` is computed on
+#'   `neighbor_assay` and used.
+#' @param dims Integer vector or single integer. Dimensions of `reduction` to
+#'   use. A single value `n` is treated as `1:n` (so `dims = 20` means `1:20`).
+#'   A vector is used as given, so `dims = 2:20` skips the first component
+#'   (useful for LSI/ATAC, where component 1 mostly tracks sequencing depth).
+#'   Default is 20.
 #' @param nfeatures Integer. Number of variable features to select before PCA-based
 #'   neighbor computation. Default is 0.
 #' @param mode Character. Entropy mode. `"counts"` uses the count-based entropy estimator
@@ -56,10 +68,12 @@ run_entropy <- function(
     neighbors = NULL,
     neighbors_method = c("auto", "custom", "seurat"),
     neighbor_assay = assay,
+    features = NULL,
     output_path = NULL,
     add_assay = TRUE,
     k = 15,
-    npca = 20,
+    reduction = NULL,
+    dims = 20,
     nfeatures = 0,
     mode = c("counts", "binary"),
     chunk_method = c("none", "auto"),
@@ -88,6 +102,40 @@ run_entropy <- function(
     "Assay '%s' contains %d cells and %d features",
     assay, ncol(seu), nrow(seu)
   )
+  ### check  feature
+
+  if (!is.null(features)) {
+    if (!is.character(features)) {
+      stop("`features` must be a character vector of feature names, not ",
+           class(features)[1], ". Indices are not accepted.")
+    }
+
+    features <- unique(features)
+    assay_features <- rownames(seu[[assay]])
+    missing <- setdiff(features, assay_features)
+
+    if (length(missing) == length(features)) {
+      stop(sprintf(
+        "None of the %d requested features are present in assay '%s'. Check your feature names.",
+        length(features), assay
+      ))
+    }
+
+    if (length(missing) > 0) {
+      stop(sprintf(
+        "%d of %d requested features are not in assay '%s': %s%s",
+        length(missing), length(features), assay,
+        paste(utils::head(missing, 10), collapse = ", "),
+        if (length(missing) > 10) ", ..." else ""
+      ))
+    }
+
+    futile.logger::flog.info(
+      "Restricting entropy computation to %d of %d features in assay '%s'.",
+      length(features), length(assay_features), assay
+    )
+  }
+
 
   ### check parallelization
 
@@ -158,7 +206,54 @@ run_entropy <- function(
 
   #### Chunk check finished
 
+  need_reduction <- (neighbors_method == "auto") || (chunk_method == "auto")
 
+  if (need_reduction) {
+
+    if (is.null(reduction)) {
+      reduction <- paste0("pca_", neighbor_assay)
+
+      if (!reduction %in% names(seu@reductions)) {
+        futile.logger::flog.info("Reduction '%s' not found. Running PCA on assay '%s'.", reduction, neighbor_assay)
+        old_default <- Seurat::DefaultAssay(seu)
+        Seurat::DefaultAssay(seu) <- neighbor_assay
+        if (nfeatures > 0) {
+          futile.logger::flog.info("Selecting top %s variable features.", nfeatures)
+          seu <- Seurat::FindVariableFeatures(seu, nfeatures = nfeatures)
+        }
+        seu <- Seurat::RunPCA(seu, reduction.name = reduction, reduction.key = paste0(tolower(reduction), "_"))
+        Seurat::DefaultAssay(seu) <- old_default
+      } else {
+        futile.logger::flog.info("Reusing existing reduction '%s'.", reduction)
+      }
+
+    } else {
+      if (!reduction %in% names(seu@reductions)) {
+        stop(sprintf("reduction '%s' not found. Available: %s", reduction, paste(names(seu@reductions), collapse = ", ")))
+      }
+      if (nfeatures > 0) {
+        futile.logger::flog.warn("nfeatures = %d ignored because reduction '%s' was supplied.", nfeatures, reduction)
+      }
+      futile.logger::flog.info("Using user-provided reduction '%s'.", reduction)
+    }
+
+    # single n -> 1:n, vector -> as given
+    if (length(dims) == 1) {
+      if (is.na(dims) || dims < 1) stop("dims must be a positive integer.")
+      dims <- seq_len(dims)
+    }
+    dims <- as.integer(dims)
+    if (any(is.na(dims)) || any(dims < 1)) stop("dims must be positive integers.")
+
+    n_avail <- ncol(Seurat::Embeddings(seu[[reduction]]))
+    if (max(dims) > n_avail) {
+      futile.logger::flog.warn("Requested dims up to %d but '%s' has %d. Capping.", max(dims), reduction, n_avail)
+      dims <- dims[dims <= n_avail]
+    }
+    if (length(dims) < 1) stop(sprintf("No valid dims after capping against '%s'.", reduction))
+  }
+
+  ########### check finishd
   ## NN creation
   if (neighbors_method == "auto") {
 
@@ -170,39 +265,13 @@ run_entropy <- function(
     seu_neighbor <- seu
     Seurat::DefaultAssay(seu_neighbor) <- neighbor_assay
 
-    reduction_name <- paste0("pca_", neighbor_assay)
-
-    if (!reduction_name %in% names(seu_neighbor@reductions)) {
-      futile.logger::flog.info(
-        "Reduction '%s' not found. Running PCA on assay '%s'.",
-        reduction_name, neighbor_assay
-      )
-
-      if (nfeatures > 0) {
-        futile.logger::flog.info("Selecting top %s variable features.", nfeatures)
-        seu_neighbor <- Seurat::FindVariableFeatures(seu_neighbor, nfeatures = nfeatures)
-      }
-
-      seu_neighbor <- Seurat::RunPCA(
-        seu_neighbor,
-        reduction.name = reduction_name,
-        reduction.key = paste0(tolower(reduction_name), "_")
-      )
-    }
-
-    num_pcs <- ncol(Seurat::Embeddings(seu_neighbor[[reduction_name]]))
-    npca <- min(npca, num_pcs)
-
-    if (npca < 1) {
-      stop("No PCA dimensions available for neighbor computation.")
-    }
-
     neighbor_name <- paste0("entropy_", neighbor_assay, "_nn")
+
 
     seu_neighbor <- Seurat::FindNeighbors(
       seu_neighbor,
-      reduction = reduction_name,
-      dims = 1:npca,
+      reduction = reduction,
+      dims = dims,
       return.neighbor = TRUE,
       k.param = k,
       graph.name = neighbor_name
@@ -272,6 +341,10 @@ run_entropy <- function(
 
   mat <- Seurat::GetAssayData(seu, assay = assay, layer = "counts")
 
+  if (!is.null(features)) {
+    mat <- mat[features, , drop = FALSE]
+  }
+
   if (mode == "binary") {
     futile.logger::flog.info("Binarizing matrix (counts > 0) for binary entropy.")
     mat_bin <- Matrix::Matrix(mat > 0, sparse = TRUE)
@@ -311,7 +384,7 @@ run_entropy <- function(
   #### Prepare chunks
   if (chunk_method == "auto") {
     futile.logger::flog.info("Preparing chunks for chunked computation.")
-    chunks <- prepare_chunks(seu, chunk_cells = chunk_cells, npca = npca, neighbor_assay = neighbor_assay)
+    chunks <- prepare_chunks(seu, chunk_cells = chunk_cells, reduction = reduction, dims = dims, neighbor_assay = neighbor_assay)
   }
 
   # Apply with progress

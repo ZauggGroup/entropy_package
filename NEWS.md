@@ -60,3 +60,20 @@ Updated function documentation and vignettes
   pressure and computation time significantly for large datasets.
 * Added parallelization support via the `n_cores` argument in `run_entropy()`.
 
+
+
+# Entropy 0.2.1
+
+### New features
+
+* `run_entropy()` gains a `features` argument: pass a character vector of gene
+  or feature names to restrict entropy computation to a subset. Defaults to
+  `NULL` (all features, fully backward compatible). Invalid or missing names
+  raise an informative error.
+
+* `run_entropy()` gains `reduction` and `dims` arguments, replacing `npca`.
+  `reduction` lets you point neighbor and chunk computation at any existing
+  dimensional reduction (e.g. `reduction = "lsi"` for ATAC). `dims` accepts
+  either a single integer (`dims = 20` → `1:20`) or a vector (`dims = 2:20`
+  to skip the first LSI component). Both the auto-neighbors path and chunking
+  now share the same reduction and dims, and PCA is computed at most once.

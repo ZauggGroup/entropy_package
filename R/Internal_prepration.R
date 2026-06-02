@@ -137,47 +137,35 @@ rowCounts_CSC_cols <- function(x, cols) {
 #'
 #' Splits cells into biologically similar chunks using Leiden clustering.
 #' Clusters larger than chunk_cells are split into sub-chunks using k-means
-#' on PCA embeddings within the cluster.
+#' on the reduction embeddings within the cluster.
 #'
 #' @param seu A Seurat object.
 #' @param chunk_cells Integer. Maximum number of cells per chunk.
-#' @param npca Integer. Number of PCA dimensions to use.
-#' @param neighbor_assay Character. Assay to use for PCA and clustering.
+#' @param reduction Character. Name of an existing dimensional reduction in
+#'   `seu` to use. Must already exist (resolved by the caller).
+#' @param dims Integer vector. Dimensions of `reduction` to use for clustering
+#'   and k-means sub-splitting.
+#' @param neighbor_assay Character. Assay to set as default for clustering.
 #'
 #' @return A list where each element is a character vector of cell names
 #'   belonging to that chunk.
 #' @keywords internal
-prepare_chunks <- function(seu, chunk_cells, npca, neighbor_assay) {
-
+prepare_chunks <- function(seu, chunk_cells, reduction, dims, neighbor_assay) {
   # work on a copy - never touch the original seu
   seu_chunk <- seu
   Seurat::DefaultAssay(seu_chunk) <- neighbor_assay
-  reduction_name <- paste0("pca_", neighbor_assay)
 
-  if (!reduction_name %in% names(seu_chunk@reductions)) {
-    futile.logger::flog.info(
-      "Reduction '%s' not found. Running PCA for chunk preparation.",
-      reduction_name
-    )
-    seu_chunk <- Seurat::RunPCA(
-      seu_chunk,
-      reduction.name = reduction_name,
-      reduction.key  = paste0(tolower(reduction_name), "_"),
-      verbose        = FALSE
-    )
+  if (!reduction %in% names(seu_chunk@reductions)) {
+    stop(sprintf("Reduction '%s' not found in object passed to prepare_chunks().", reduction))
   }
 
-  # cap npca to available dimensions
-  num_pcs <- ncol(Seurat::Embeddings(seu_chunk[[reduction_name]]))
-  npca    <- min(npca, num_pcs)
-
   futile.logger::flog.info(
-    "Preparing chunks using Leiden clustering (resolution = 0.3) with %d PCA dims.",
-    npca
+    "Preparing chunks using Leiden clustering (resolution = 0.3) with %d dims of reduction '%s'.",
+    length(dims), reduction
   )
 
   # FindNeighbors and FindClusters only on seu_chunk - original seu untouched
-  seu_chunk <- Seurat::FindNeighbors(seu_chunk, dims = 1:npca, verbose = FALSE)
+  seu_chunk <- Seurat::FindNeighbors(seu_chunk, reduction = reduction, dims = dims, verbose = FALSE)
   seu_chunk <- Seurat::FindClusters(seu_chunk, resolution = 0.3, verbose = FALSE)
 
   cluster_labels <- as.integer(Seurat::Idents(seu_chunk))
@@ -191,17 +179,13 @@ prepare_chunks <- function(seu, chunk_cells, npca, neighbor_assay) {
 
   # split big clusters into sub-chunks
   chunks <- unlist(lapply(clusters, function(cluster_cell_names) {
-
     if (length(cluster_cell_names) <= chunk_cells) {
       return(list(cluster_cell_names))
     }
-
     n_subchunks <- ceiling(length(cluster_cell_names) / chunk_cells)
-    pca_sub     <- Seurat::Embeddings(seu_chunk[[reduction_name]])[cluster_cell_names, 1:npca]
+    pca_sub     <- Seurat::Embeddings(seu_chunk[[reduction]])[cluster_cell_names, dims]
     km          <- kmeans(pca_sub, centers = n_subchunks, iter.max = 50, nstart = 3)
-
     split(cluster_cell_names, km$cluster)
-
   }), recursive = FALSE)
 
   futile.logger::flog.info(

@@ -25,7 +25,7 @@ new assay named `"assay_entropy"`.'><!-- mathjax --><script src="https://cdnjs.c
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.1</span>
       </span>
     </div>
 
@@ -85,12 +85,18 @@ new assay named `"assay_entropy"`.</p>
 <span>  neighbors <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  neighbors_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"custom"</span>, <span class="st">"seurat"</span><span class="op">)</span>,</span>
 <span>  neighbor_assay <span class="op">=</span> <span class="va">assay</span>,</span>
+<span>  features <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  output_path <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  add_assay <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  k <span class="op">=</span> <span class="fl">15</span>,</span>
-<span>  npca <span class="op">=</span> <span class="fl">20</span>,</span>
+<span>  reduction <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  dims <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>  nfeatures <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"counts"</span>, <span class="st">"binary"</span><span class="op">)</span></span>
+<span>  mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"counts"</span>, <span class="st">"binary"</span><span class="op">)</span>,</span>
+<span>  chunk_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"none"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
+<span>  chunk_cells <span class="op">=</span> <span class="fl">2000</span>,</span>
+<span>  parallelize <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html" class="external-link">detectCores</a></span><span class="op">(</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -126,6 +132,14 @@ uses the user-provided Seurat neighbor object in `neighbors`.</p></dd>
 when `neighbors_method = "auto"`. Defaults to `assay`.</p></dd>
 
 
+<dt id="arg-features">features<a class="anchor" aria-label="anchor" href="#arg-features"></a></dt>
+<dd><p>Optional character vector of feature names (e.g. genes) to
+restrict the entropy computation to. If `NULL` (default), entropy is
+computed for all features in `assay`. Subsetting applies only to `assay`
+(the scored features), not to `neighbor_assay` (which defines neighborhoods).
+In `"counts"` mode this also reduces runtime proportionally.</p></dd>
+
+
 <dt id="arg-output-path">output_path<a class="anchor" aria-label="anchor" href="#arg-output-path"></a></dt>
 <dd><p>Optional character string. If provided, saves the full entropy
 matrix to this file using `saveRDS()`.</p></dd>
@@ -141,9 +155,19 @@ Seurat object as a new assay called `"assay_entropy"`.</p></dd>
 internally. Default is 15.</p></dd>
 
 
-<dt id="arg-npca">npca<a class="anchor" aria-label="anchor" href="#arg-npca"></a></dt>
-<dd><p>Integer. Number of PCA dimensions to use when computing neighbors
-internally. Default is 20.</p></dd>
+<dt id="arg-reduction">reduction<a class="anchor" aria-label="anchor" href="#arg-reduction"></a></dt>
+<dd><p>Character. Name of an existing dimensional reduction in
+`seu` to use for neighbor and chunk computation (e.g. `"lsi"` for ATAC).
+If `NULL` (default), a PCA named `"pca_&lt;neighbor_assay&gt;"` is computed on
+`neighbor_assay` and used.</p></dd>
+
+
+<dt id="arg-dims">dims<a class="anchor" aria-label="anchor" href="#arg-dims"></a></dt>
+<dd><p>Integer vector or single integer. Dimensions of `reduction` to
+use. A single value `n` is treated as `1:n` (so `dims = 20` means `1:20`).
+A vector is used as given, so `dims = 2:20` skips the first component
+(useful for LSI/ATAC, where component 1 mostly tracks sequencing depth).
+Default is 20.</p></dd>
 
 
 <dt id="arg-nfeatures">nfeatures<a class="anchor" aria-label="anchor" href="#arg-nfeatures"></a></dt>
@@ -155,6 +179,31 @@ neighbor computation. Default is 0.</p></dd>
 <dd><p>Character. Entropy mode. `"counts"` uses the count-based entropy estimator
 (BUB precomputed table). `"binary"` binarizes the assay counts (values &gt; 0) and
 computes Shannon entropy for a Bernoulli distribution across neighbors.</p></dd>
+
+
+<dt id="arg-chunk-method">chunk_method<a class="anchor" aria-label="anchor" href="#arg-chunk-method"></a></dt>
+<dd><p>Character. Whether to use chunked computation.
+One of `"none"` or `"auto"`. `"none"` uses the standard approach (default).
+`"auto"` splits cells into biologically similar groups and processes
+each group independently, significantly reducing memory and runtime
+for large datasets. Recommended for datasets with more than 10,000 cells.</p></dd>
+
+
+<dt id="arg-chunk-cells">chunk_cells<a class="anchor" aria-label="anchor" href="#arg-chunk-cells"></a></dt>
+<dd><p>Integer. Maximum number of cells per chunk when
+`chunk_method = "auto"`. Defaults to 2000. Values between 1000 and 5000
+are recommended.</p></dd>
+
+
+<dt id="arg-parallelize">parallelize<a class="anchor" aria-label="anchor" href="#arg-parallelize"></a></dt>
+<dd><p>Logical. Whether to parallelize chunk processing across
+multiple cores. Only applies when <code>chunk_method = "auto"</code>.
+Defaults to <code>FALSE</code>. Not supported on Windows.</p></dd>
+
+
+<dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
+<dd><p>Integer. Number of cores to use when <code>parallelize = TRUE</code>.
+Defaults to <code>parallel::detectCores() - 1</code>.</p></dd>
 
 </dl></div>
     <div id="value">

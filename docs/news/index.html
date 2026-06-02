@@ -23,7 +23,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.1</span>
       </span>
     </div>
 
@@ -125,6 +125,14 @@
 <ul><li>
 <code><a href="../reference/run_entropy.html">run_entropy()</a></code> now supports a chunking strategy (<code>chunk_method = "auto"</code>) that groups cells into biologically similar chunks using Leiden clustering. This reduces memory pressure and computation time significantly for large datasets.</li>
 <li>Added parallelization support via the <code>n_cores</code> argument in <code><a href="../reference/run_entropy.html">run_entropy()</a></code>.</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.2.1" id="entropy-021">Entropy 0.2.1<a class="anchor" aria-label="anchor" href="#entropy-021"></a></h2>
+<div class="section level4">
+<h4 id="new-features-0-2-1">New features<a class="anchor" aria-label="anchor" href="#new-features-0-2-1"></a></h4>
+<ul><li><p><code><a href="../reference/run_entropy.html">run_entropy()</a></code> gains a <code>features</code> argument: pass a character vector of gene or feature names to restrict entropy computation to a subset. Defaults to <code>NULL</code> (all features, fully backward compatible). Invalid or missing names raise an informative error.</p></li>
+<li><p><code><a href="../reference/run_entropy.html">run_entropy()</a></code> gains <code>reduction</code> and <code>dims</code> arguments, replacing <code>npca</code>. <code>reduction</code> lets you point neighbor and chunk computation at any existing dimensional reduction (e.g. <code>reduction = "lsi"</code> for ATAC). <code>dims</code> accepts either a single integer (<code>dims = 20</code> → <code>1:20</code>) or a vector (<code>dims = 2:20</code> to skip the first LSI component). Both the auto-neighbors path and chunking now share the same reduction and dims, and PCA is computed at most once.</p></li>
 </ul></div>
 </div>
   </div>
