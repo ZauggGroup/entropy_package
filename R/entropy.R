@@ -255,6 +255,25 @@ run_entropy <- function(
       reduction <- paste0("pca_", neighbor_assay)
 
       if (!reduction %in% names(seu@reductions)) {
+
+        # cross-version check: does scaled data exist for this assay? (v4 + v5)
+        sd <- tryCatch(
+          SeuratObject::GetAssayData(seu, assay = neighbor_assay, layer = "scale.data"),
+          error = function(e) NULL
+        )
+        has_scale <- !is.null(sd) && nrow(sd) > 0
+
+        if (!has_scale) {
+          stop(sprintf(
+            paste0(
+              "Assay '%s' has no scaled data, which is required to compute PCA. ",
+              "Please normalize and scale the assay first (e.g. NormalizeData() then ScaleData(), ",
+              "or the SCT/ATAC equivalent for your data), or pass a precomputed reduction via `reduction=`."
+            ),
+            neighbor_assay
+          ))
+        }
+
         futile.logger::flog.info("Reduction '%s' not found. Running PCA on assay '%s'.", reduction, neighbor_assay)
         old_default <- Seurat::DefaultAssay(seu)
         Seurat::DefaultAssay(seu) <- neighbor_assay
@@ -262,7 +281,12 @@ run_entropy <- function(
           futile.logger::flog.info("Selecting top %s variable features.", nfeatures)
           seu <- Seurat::FindVariableFeatures(seu, nfeatures = nfeatures)
         }
-        seu <- Seurat::RunPCA(seu, reduction.name = reduction, reduction.key = paste0(tolower(reduction), "_"))
+        seu <- Seurat::RunPCA(
+          seu,
+          reduction.name = reduction,
+          reduction.key  = paste0(gsub("[^a-zA-Z0-9]", "", reduction), "_"),
+          verbose        = FALSE
+        )
         Seurat::DefaultAssay(seu) <- old_default
       } else {
         futile.logger::flog.info("Reusing existing reduction '%s'.", reduction)
@@ -612,7 +636,11 @@ run_entropy <- function(
 
   if (add_assay) {
 
-    entropy_assay <- Seurat::CreateAssayObject(counts = entropy_matrix)
+    entropy_assay <- if (utils::packageVersion("SeuratObject") >= "5.0.0") {
+      SeuratObject::CreateAssay5Object(counts = entropy_matrix)
+    } else {
+      SeuratObject::CreateAssayObject(counts = entropy_matrix)
+    }
     assay_name <- paste0(assay, "_entropy")
     seu[[assay_name]] <- entropy_assay
 

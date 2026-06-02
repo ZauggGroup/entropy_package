@@ -94,4 +94,19 @@ Updated function documentation and vignettes
     Groups smaller than `k + 1` are capped to the group size, with a warning.
   - For `neighbors_method = "custom"` or `"seurat"`, the provided neighbor
     graph is filtered to keep only within-group neighbors (it is never
-    recomputed, preserving wh
+    recomputed, preserving whatever method produced it). Neighborhoods shrink
+    as a result, especially at group boundaries; a before/after summary of
+    mean neighbors per cell is logged.
+  - Cells with `NA` in the `restrict_by` column belong to no group, receive no
+    neighbors, and return entropy 0. The number of such cells is reported.
+    
+    
+# Entropy 0.2.3
+
+### Bug fixes
+
+* `run_entropy()` now works with both Seurat v4 and v5 objects.
+* When no reduction exists and the assay has no scaled data, `run_entropy()`
+  now stops with a clear message instead of failing inside `RunPCA()`.
+* Silenced verbose PCA output and fixed a reduction-key warning for assay
+  names containing underscores (e.g. `pca_sct`).

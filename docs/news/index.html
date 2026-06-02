@@ -23,7 +23,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.3</span>
       </span>
     </div>
 
@@ -142,8 +142,19 @@
 <ul><li>
 <p><code><a href="../reference/run_entropy.html">run_entropy()</a></code> gains a <code>restrict_by</code> argument: pass the name of a column in <code>seu@meta.data</code> (e.g. <code>"cell_type"</code>) to restrict each cell’s neighbors to cells sharing the same group, so entropy is computed within groups rather than across them. Works in both normal and chunked mode, and is <code>NULL</code> (off) by default.</p>
 <ul><li>For <code>neighbors_method = "auto"</code>, neighbors are recomputed <em>within</em> each group, so each cell gets up to <code>k</code> neighbors drawn only from its own group. Groups smaller than <code>k + 1</code> are capped to the group size, with a warning.</li>
-<li>For <code>neighbors_method = "custom"</code> or <code>"seurat"</code>, the provided neighbor graph is filtered to keep only within-group neighbors (it is never recomputed, preserving wh</li>
+<li>For <code>neighbors_method = "custom"</code> or <code>"seurat"</code>, the provided neighbor graph is filtered to keep only within-group neighbors (it is never recomputed, preserving whatever method produced it). Neighborhoods shrink as a result, especially at group boundaries; a before/after summary of mean neighbors per cell is logged.</li>
+<li>Cells with <code>NA</code> in the <code>restrict_by</code> column belong to no group, receive no neighbors, and return entropy 0. The number of such cells is reported.</li>
 </ul></li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.2.3" id="entropy-023">Entropy 0.2.3<a class="anchor" aria-label="anchor" href="#entropy-023"></a></h2>
+<div class="section level4">
+<h4 id="bug-fixes-0-2-3">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-2-3"></a></h4>
+<ul><li>
+<code><a href="../reference/run_entropy.html">run_entropy()</a></code> now works with both Seurat v4 and v5 objects.</li>
+<li>When no reduction exists and the assay has no scaled data, <code><a href="../reference/run_entropy.html">run_entropy()</a></code> now stops with a clear message instead of failing inside <code><a href="https://satijalab.org/seurat/reference/RunPCA.html" class="external-link">RunPCA()</a></code>.</li>
+<li>Silenced verbose PCA output and fixed a reduction-key warning for assay names containing underscores (e.g. <code>pca_sct</code>).</li>
 </ul></div>
 </div>
   </div>
