@@ -88,4 +88,43 @@ hist(
 )
 ```
 
+## Run entropy restricted within groups
+
+The `restrict_by` argument restricts each cell's neighbors to cells sharing the
+same value in a metadata column, so entropy is computed *within* groups rather
+than across them. Here we use the `groups` column of `pbmc_small`.
+
+```{r}
+result_restricted <- run_entropy(
+  seu = pbmc_small,
+  assay = "RNA",
+  neighbors_method = "auto",
+  add_assay = FALSE,
+  mode = "counts",
+  restrict_by = "groups"
+)
+```
+
+## Compare unrestricted vs restricted
+
+```{r}
+means_restricted <- result_restricted[[1]]
+
+par(mfrow = c(1, 2))
+hist(means_counts, main = "Unrestricted", xlab = "Mean entropy",
+     col = "steelblue", xlim = range(c(means_counts, means_restricted)))
+hist(means_restricted, main = "Restricted within groups", xlab = "Mean entropy",
+     col = "seagreen", xlim = range(c(means_counts, means_restricted)))
+par(mfrow = c(1, 1))
+```
+
+Restricting neighbors to within-group cells changes each cell's neighborhood
+composition, which shifts the entropy estimates. On a small demonstration
+dataset like `pbmc_small` the magnitude of the difference is not biologically
+meaningful — the purpose here is to show the effect of the `restrict_by`
+argument on the computation, not to interpret the values.
+
+
+
+
 

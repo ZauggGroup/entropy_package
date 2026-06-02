@@ -11,6 +11,7 @@ run_entropy(
   neighbors_method = c("auto", "custom", "seurat"),
   neighbor_assay = assay,
   features = NULL,
+  restrict_by = NULL,
   output_path = NULL,
   add_assay = TRUE,
   k = 15,
@@ -48,6 +49,16 @@ restrict the entropy computation to. If `NULL` (default), entropy is
 computed for all features in `assay`. Subsetting applies only to `assay`
 (the scored features), not to `neighbor_assay` (which defines neighborhoods).
 In `"counts"` mode this also reduces runtime proportionally.}
+
+\item{restrict_by}{Optional character string naming a column in
+`seu@meta.data` (e.g. `"celltype"`). If provided, each cell's neighbors are
+filtered to keep only those sharing the same value in this column, so
+entropy is computed within groups rather than across them. The existing
+neighbor graph is pruned (never recomputed), so it respects whatever method
+produced the neighbors. Neighborhoods shrink as a result, especially at
+group boundaries; cells with no within-group neighbors return entropy 0.
+If `NULL` (default), neighbors are used as-is (no restriction). Works in
+both normal and chunked mode.}
 
 \item{output_path}{Optional character string. If provided, saves the full entropy
 matrix to this file using `saveRDS()`.}

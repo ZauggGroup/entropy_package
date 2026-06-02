@@ -77,3 +77,21 @@ Updated function documentation and vignettes
   either a single integer (`dims = 20` → `1:20`) or a vector (`dims = 2:20`
   to skip the first LSI component). Both the auto-neighbors path and chunking
   now share the same reduction and dims, and PCA is computed at most once.
+  
+  
+# Entropy 0.2.2
+
+### New features
+
+* `run_entropy()` gains a `restrict_by` argument: pass the name of a column in
+  `seu@meta.data` (e.g. `"cell_type"`) to restrict each cell's neighbors to
+  cells sharing the same group, so entropy is computed within groups rather
+  than across them. Works in both normal and chunked mode, and is `NULL`
+  (off) by default.
+
+  - For `neighbors_method = "auto"`, neighbors are recomputed *within* each
+    group, so each cell gets up to `k` neighbors drawn only from its own group.
+    Groups smaller than `k + 1` are capped to the group size, with a warning.
+  - For `neighbors_method = "custom"` or `"seurat"`, the provided neighbor
+    graph is filtered to keep only within-group neighbors (it is never
+    recomputed, preserving wh

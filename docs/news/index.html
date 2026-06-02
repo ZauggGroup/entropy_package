@@ -23,7 +23,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
       </span>
     </div>
 
@@ -133,6 +133,17 @@
 <h4 id="new-features-0-2-1">New features<a class="anchor" aria-label="anchor" href="#new-features-0-2-1"></a></h4>
 <ul><li><p><code><a href="../reference/run_entropy.html">run_entropy()</a></code> gains a <code>features</code> argument: pass a character vector of gene or feature names to restrict entropy computation to a subset. Defaults to <code>NULL</code> (all features, fully backward compatible). Invalid or missing names raise an informative error.</p></li>
 <li><p><code><a href="../reference/run_entropy.html">run_entropy()</a></code> gains <code>reduction</code> and <code>dims</code> arguments, replacing <code>npca</code>. <code>reduction</code> lets you point neighbor and chunk computation at any existing dimensional reduction (e.g. <code>reduction = "lsi"</code> for ATAC). <code>dims</code> accepts either a single integer (<code>dims = 20</code> → <code>1:20</code>) or a vector (<code>dims = 2:20</code> to skip the first LSI component). Both the auto-neighbors path and chunking now share the same reduction and dims, and PCA is computed at most once.</p></li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.2.2" id="entropy-022">Entropy 0.2.2<a class="anchor" aria-label="anchor" href="#entropy-022"></a></h2>
+<div class="section level4">
+<h4 id="new-features-0-2-2">New features<a class="anchor" aria-label="anchor" href="#new-features-0-2-2"></a></h4>
+<ul><li>
+<p><code><a href="../reference/run_entropy.html">run_entropy()</a></code> gains a <code>restrict_by</code> argument: pass the name of a column in <code>seu@meta.data</code> (e.g. <code>"cell_type"</code>) to restrict each cell’s neighbors to cells sharing the same group, so entropy is computed within groups rather than across them. Works in both normal and chunked mode, and is <code>NULL</code> (off) by default.</p>
+<ul><li>For <code>neighbors_method = "auto"</code>, neighbors are recomputed <em>within</em> each group, so each cell gets up to <code>k</code> neighbors drawn only from its own group. Groups smaller than <code>k + 1</code> are capped to the group size, with a warning.</li>
+<li>For <code>neighbors_method = "custom"</code> or <code>"seurat"</code>, the provided neighbor graph is filtered to keep only within-group neighbors (it is never recomputed, preserving wh</li>
+</ul></li>
 </ul></div>
 </div>
   </div>

@@ -38,7 +38,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
       </span>
     </div>
 
@@ -169,10 +169,10 @@ assay used for entropy.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"counts"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-06-02 11:36:36] Assay 'RNA' found and set as default assay.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:36] Starting entropy estimation for assay: RNA</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:36] Assay 'RNA' contains 80 cells and 230 features</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:36] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:48:52] Assay 'RNA' found and set as default assay.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:52] Starting entropy estimation for assay: RNA</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:52] Assay 'RNA' contains 80 cells and 230 features</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:52] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): You're computing too large</span></span>
 <span><span class="co">## a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): did not converge--results</span></span>
@@ -204,12 +204,12 @@ assay used for entropy.</p>
 <span><span class="co">## pcarna_ 5 </span></span>
 <span><span class="co">## Positive:  MYL9, PARVB, IGLL5, TREML1, AKR1C3, PGRMC1, HLA-DPB1, S100A9, TUBB1, PF4 </span></span>
 <span><span class="co">## Negative:  VDAC3, RP11-290F20.3, RUFY1, CD1C, HLA-DQA1, CA2, S100A8, PPBP, GNLY, SDPR</span></span></code></pre>
-<pre><code><span><span class="co">## WARN [2026-06-02 11:36:36] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:36] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## WARN [2026-06-02 15:48:52] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:52] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Computing nearest neighbors</span></span></code></pre>
 <pre><code><span><span class="co">## Warning: package 'future' was built under R version 4.4.3</span></span></code></pre>
 <pre><code><span><span class="co">## Only one graph name supplied, storing nearest-neighbor graph only</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-06-02 11:36:36] Reading the precomputed table (counts mode)</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:48:52] Reading the precomputed table (counts mode)</span></span></code></pre>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res_auto</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##                    means</span></span>
@@ -291,11 +291,11 @@ object</strong> that contains the indices of neighboring cells.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"counts"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-06-02 11:36:40] Assay 'RNA' found and set as default assay.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:40] Starting entropy estimation for assay: RNA</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:40] Assay 'RNA' contains 80 cells and 230 features</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:40] Using user-provided Seurat neighbor object.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:40] Reading the precomputed table (counts mode)</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:48:56] Assay 'RNA' found and set as default assay.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:56] Starting entropy estimation for assay: RNA</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:56] Assay 'RNA' contains 80 cells and 230 features</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:56] Using user-provided Seurat neighbor object.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:56] Reading the precomputed table (counts mode)</span></span></code></pre>
 <div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res_seurat</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##                    means</span></span>
@@ -408,11 +408,11 @@ into a custom list.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"counts"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-06-02 11:36:44] Assay 'RNA' found and set as default assay.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:44] Starting entropy estimation for assay: RNA</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:44] Assay 'RNA' contains 80 cells and 230 features</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:44] Using user-provided custom neighbors.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:44] Reading the precomputed table (counts mode)</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:48:59] Assay 'RNA' found and set as default assay.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:59] Starting entropy estimation for assay: RNA</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:59] Assay 'RNA' contains 80 cells and 230 features</span></span>
+<span><span class="co">## INFO [2026-06-02 15:48:59] Using user-provided custom neighbors.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:00] Reading the precomputed table (counts mode)</span></span></code></pre>
 <div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res_custom</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##                    means</span></span>

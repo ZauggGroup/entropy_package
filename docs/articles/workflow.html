@@ -38,7 +38,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
       </span>
     </div>
 
@@ -138,10 +138,10 @@ Seurat object.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"counts"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-06-02 11:36:51] Assay 'RNA' found and set as default assay.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:51] Starting entropy estimation for assay: RNA</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:51] Assay 'RNA' contains 80 cells and 230 features</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:51] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:49:07] Assay 'RNA' found and set as default assay.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:07] Starting entropy estimation for assay: RNA</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:07] Assay 'RNA' contains 80 cells and 230 features</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:07] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): You're computing too large</span></span>
 <span><span class="co">## a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): did not converge--results</span></span>
@@ -173,14 +173,14 @@ Seurat object.</p>
 <span><span class="co">## pcarna_ 5 </span></span>
 <span><span class="co">## Positive:  MYL9, PARVB, IGLL5, TREML1, AKR1C3, PGRMC1, HLA-DPB1, S100A9, TUBB1, PF4 </span></span>
 <span><span class="co">## Negative:  VDAC3, RP11-290F20.3, RUFY1, CD1C, HLA-DQA1, CA2, S100A8, PPBP, GNLY, SDPR</span></span></code></pre>
-<pre><code><span><span class="co">## WARN [2026-06-02 11:36:51] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:51] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## WARN [2026-06-02 15:49:07] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:07] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Computing nearest neighbors</span></span></code></pre>
 <pre><code><span><span class="co">## Warning: package 'future' was built under R version 4.4.3</span></span></code></pre>
 <pre><code><span><span class="co">## Only one graph name supplied, storing nearest-neighbor graph only</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-06-02 11:36:52] Reading the precomputed table (counts mode)</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:55] Entropy matrix added to Seurat object as 'RNA_entropy'.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:55] Mean entropy added to metadata column 'entropy_mean_RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:49:07] Reading the precomputed table (counts mode)</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:10] Entropy matrix added to Seurat object as 'RNA_entropy'.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:10] Mean entropy added to metadata column 'entropy_mean_RNA'.</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="inspect-entropy-assay">Inspect entropy assay<a class="anchor" aria-label="anchor" href="#inspect-entropy-assay"></a>
@@ -221,10 +221,10 @@ and computes Shannon entropy.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"binary"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-06-02 11:36:55] Assay 'RNA' found and set as default assay.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:55] Starting entropy estimation for assay: RNA</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:55] Assay 'RNA' contains 80 cells and 230 features</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:55] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:49:11] Assay 'RNA' found and set as default assay.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Starting entropy estimation for assay: RNA</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Assay 'RNA' contains 80 cells and 230 features</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): You're computing too large</span></span>
 <span><span class="co">## a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): did not converge--results</span></span>
@@ -256,12 +256,12 @@ and computes Shannon entropy.</p>
 <span><span class="co">## pcarna_ 5 </span></span>
 <span><span class="co">## Positive:  MYL9, PARVB, IGLL5, TREML1, AKR1C3, PGRMC1, HLA-DPB1, S100A9, TUBB1, PF4 </span></span>
 <span><span class="co">## Negative:  VDAC3, RP11-290F20.3, RUFY1, CD1C, HLA-DQA1, CA2, S100A8, PPBP, GNLY, SDPR</span></span></code></pre>
-<pre><code><span><span class="co">## WARN [2026-06-02 11:36:55] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:55] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## WARN [2026-06-02 15:49:11] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Computing nearest neighbors</span></span></code></pre>
 <pre><code><span><span class="co">## Only one graph name supplied, storing nearest-neighbor graph only</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-06-02 11:36:56] Binarizing matrix (counts &gt; 0) for binary entropy.</span></span>
-<span><span class="co">## INFO [2026-06-02 11:36:56] Reading the binary entropy lookup (binary mode)</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:49:11] Binarizing matrix (counts &gt; 0) for binary entropy.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Reading the binary entropy lookup (binary mode)</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="inspect-binary-entropy-output">Inspect binary entropy output<a class="anchor" aria-label="anchor" href="#inspect-binary-entropy-output"></a>
@@ -287,6 +287,85 @@ and computes Shannon entropy.</p>
 <span>  col <span class="op">=</span> <span class="st">"darkorange"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><img src="workflow_files/figure-html/unnamed-chunk-7-1.png" width="700"></p>
+</div>
+<div class="section level2">
+<h2 id="run-entropy-restricted-within-groups">Run entropy restricted within groups<a class="anchor" aria-label="anchor" href="#run-entropy-restricted-within-groups"></a>
+</h2>
+<p>The <code>restrict_by</code> argument restricts each cell’s neighbors
+to cells sharing the same value in a metadata column, so entropy is
+computed <em>within</em> groups rather than across them. Here we use the
+<code>groups</code> column of <code>pbmc_small</code>.</p>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">result_restricted</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_entropy.html">run_entropy</a></span><span class="op">(</span></span>
+<span>  seu <span class="op">=</span> <span class="va">pbmc_small</span>,</span>
+<span>  assay <span class="op">=</span> <span class="st">"RNA"</span>,</span>
+<span>  neighbors_method <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  add_assay <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  mode <span class="op">=</span> <span class="st">"counts"</span>,</span>
+<span>  restrict_by <span class="op">=</span> <span class="st">"groups"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">## INFO [2026-06-02 15:49:11] Assay 'RNA' found and set as default assay.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Starting entropy estimation for assay: RNA</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Assay 'RNA' contains 80 cells and 230 features</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Neighbors will be restricted within groups defined by metadata column 'groups'.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): You're computing too large</span></span>
+<span><span class="co">## a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
+<pre><code><span><span class="co">## Warning in irlba(A = t(x = object), nv = npcs, ...): did not converge--results</span></span>
+<span><span class="co">## might be invalid!; try increasing work or maxit</span></span></code></pre>
+<pre><code><span><span class="co">## Warning: Keys should be one or more alphanumeric characters followed by an</span></span>
+<span><span class="co">## underscore, setting key from pca_rna_ to pcarna_</span></span></code></pre>
+<pre><code><span><span class="co">## Warning: Requested number is larger than the number of available items (20).</span></span>
+<span><span class="co">## Setting to 20.</span></span>
+<span><span class="co">## Warning: Requested number is larger than the number of available items (20).</span></span>
+<span><span class="co">## Setting to 20.</span></span>
+<span><span class="co">## Warning: Requested number is larger than the number of available items (20).</span></span>
+<span><span class="co">## Setting to 20.</span></span>
+<span><span class="co">## Warning: Requested number is larger than the number of available items (20).</span></span>
+<span><span class="co">## Setting to 20.</span></span>
+<span><span class="co">## Warning: Requested number is larger than the number of available items (20).</span></span>
+<span><span class="co">## Setting to 20.</span></span></code></pre>
+<pre><code><span><span class="co">## pcarna_ 1 </span></span>
+<span><span class="co">## Positive:  SDPR, PF4, PPBP, TUBB1, CA2, TREML1, MYL9, PGRMC1, RUFY1, PARVB </span></span>
+<span><span class="co">## Negative:  HLA-DPB1, HLA-DQA1, S100A9, S100A8, GNLY, RP11-290F20.3, CD1C, AKR1C3, IGLL5, VDAC3 </span></span>
+<span><span class="co">## pcarna_ 2 </span></span>
+<span><span class="co">## Positive:  HLA-DPB1, HLA-DQA1, S100A8, S100A9, CD1C, RP11-290F20.3, PARVB, IGLL5, MYL9, SDPR </span></span>
+<span><span class="co">## Negative:  GNLY, AKR1C3, VDAC3, PGRMC1, TUBB1, PF4, TREML1, RUFY1, CA2, PPBP </span></span>
+<span><span class="co">## pcarna_ 3 </span></span>
+<span><span class="co">## Positive:  S100A9, S100A8, RP11-290F20.3, AKR1C3, PARVB, GNLY, PPBP, PGRMC1, MYL9, TUBB1 </span></span>
+<span><span class="co">## Negative:  HLA-DQA1, CD1C, IGLL5, HLA-DPB1, RUFY1, PF4, VDAC3, SDPR, TREML1, CA2 </span></span>
+<span><span class="co">## pcarna_ 4 </span></span>
+<span><span class="co">## Positive:  IGLL5, RP11-290F20.3, VDAC3, PPBP, TUBB1, TREML1, PF4, CA2, PARVB, MYL9 </span></span>
+<span><span class="co">## Negative:  CD1C, AKR1C3, S100A8, GNLY, HLA-DPB1, HLA-DQA1, S100A9, PGRMC1, RUFY1, SDPR </span></span>
+<span><span class="co">## pcarna_ 5 </span></span>
+<span><span class="co">## Positive:  MYL9, PARVB, IGLL5, TREML1, AKR1C3, PGRMC1, HLA-DPB1, S100A9, TUBB1, PF4 </span></span>
+<span><span class="co">## Negative:  VDAC3, RP11-290F20.3, RUFY1, CD1C, HLA-DQA1, CA2, S100A8, PPBP, GNLY, SDPR</span></span></code></pre>
+<pre><code><span><span class="co">## WARN [2026-06-02 15:49:11] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Recomputing neighbors within each group of 'groups'.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Within-group neighbors: mean 15.0 per cell; 0 cells with 0 neighbors.</span></span>
+<span><span class="co">## INFO [2026-06-02 15:49:11] Reading the precomputed table (counts mode)</span></span></code></pre>
+</div>
+<div class="section level2">
+<h2 id="compare-unrestricted-vs-restricted">Compare unrestricted vs restricted<a class="anchor" aria-label="anchor" href="#compare-unrestricted-vs-restricted"></a>
+</h2>
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">means_restricted</span> <span class="op">&lt;-</span> <span class="va">result_restricted</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html" class="external-link">hist</a></span><span class="op">(</span><span class="va">means_counts</span>, main <span class="op">=</span> <span class="st">"Unrestricted"</span>, xlab <span class="op">=</span> <span class="st">"Mean entropy"</span>,</span>
+<span>     col <span class="op">=</span> <span class="st">"steelblue"</span>, xlim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">means_counts</span>, <span class="va">means_restricted</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html" class="external-link">hist</a></span><span class="op">(</span><span class="va">means_restricted</span>, main <span class="op">=</span> <span class="st">"Restricted within groups"</span>, xlab <span class="op">=</span> <span class="st">"Mean entropy"</span>,</span>
+<span>     col <span class="op">=</span> <span class="st">"seagreen"</span>, xlim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">means_counts</span>, <span class="va">means_restricted</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="workflow_files/figure-html/unnamed-chunk-9-1.png" width="700"></p>
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Restricting neighbors to within-group cells changes each cell’s
+neighborhood composition, which shifts the entropy estimates. On a small
+demonstration dataset like <code>pbmc_small</code> the magnitude of the
+difference is not biologically meaningful — the purpose here is to show
+the effect of the <code>restrict_by</code> argument on the computation,
+not to interpret the values.</p>
 </div>
   </div>
 

@@ -22,6 +22,15 @@
 #'   computed for all features in `assay`. Subsetting applies only to `assay`
 #'   (the scored features), not to `neighbor_assay` (which defines neighborhoods).
 #'   In `"counts"` mode this also reduces runtime proportionally.
+#' @param restrict_by Optional character string naming a column in
+#'   `seu@meta.data` (e.g. `"celltype"`). If provided, each cell's neighbors are
+#'   filtered to keep only those sharing the same value in this column, so
+#'   entropy is computed within groups rather than across them. The existing
+#'   neighbor graph is pruned (never recomputed), so it respects whatever method
+#'   produced the neighbors. Neighborhoods shrink as a result, especially at
+#'   group boundaries; cells with no within-group neighbors return entropy 0.
+#'   If `NULL` (default), neighbors are used as-is (no restriction). Works in
+#'   both normal and chunked mode.
 #' @param output_path Optional character string. If provided, saves the full entropy
 #'   matrix to this file using `saveRDS()`.
 #' @param add_assay Logical. If `TRUE` (default), adds the entropy matrix to the
@@ -69,6 +78,7 @@ run_entropy <- function(
     neighbors_method = c("auto", "custom", "seurat"),
     neighbor_assay = assay,
     features = NULL,
+    restrict_by = NULL,
     output_path = NULL,
     add_assay = TRUE,
     k = 15,
@@ -204,6 +214,37 @@ run_entropy <- function(
 
   }
 
+  #### restrict_by check
+  if (!is.null(restrict_by)) {
+    if (!is.character(restrict_by) || length(restrict_by) != 1) {
+      stop("`restrict_by` must be a single character string naming a metadata column.")
+    }
+
+    if (!restrict_by %in% colnames(seu@meta.data)) {
+      stop(sprintf(
+        "restrict_by column '%s' not found in seu@meta.data. Available columns: %s",
+        restrict_by,
+        paste(colnames(seu@meta.data), collapse = ", ")
+      ))
+    }
+
+    n_na <- sum(is.na(seu@meta.data[[restrict_by]]))
+    if (n_na > 0) {
+      futile.logger::flog.warn(
+        "Column '%s' has %d cells with NA. These cells belong to no group and will have no within-group neighbors (entropy 0).",
+        restrict_by, n_na
+      )
+    }
+
+    futile.logger::flog.info(
+      "Neighbors will be restricted within groups defined by metadata column '%s'.",
+      restrict_by
+    )
+  }
+
+
+
+
   #### Chunk check finished
 
   need_reduction <- (neighbors_method == "auto") || (chunk_method == "auto")
@@ -255,6 +296,10 @@ run_entropy <- function(
 
   ########### check finishd
   ## NN creation
+
+  restrict_method <- neighbors_method
+
+
   if (neighbors_method == "auto") {
 
     futile.logger::flog.info(
@@ -262,31 +307,93 @@ run_entropy <- function(
       neighbor_assay
     )
 
-    seu_neighbor <- seu
-    Seurat::DefaultAssay(seu_neighbor) <- neighbor_assay
+    if (is.null(restrict_by)) {
+      # ---- unrestricted: global kNN via FindNeighbors (as before) ----
+      seu_neighbor <- seu
+      Seurat::DefaultAssay(seu_neighbor) <- neighbor_assay
+      neighbor_name <- paste0("entropy_", neighbor_assay, "_nn")
 
-    neighbor_name <- paste0("entropy_", neighbor_assay, "_nn")
+      seu_neighbor <- Seurat::FindNeighbors(
+        seu_neighbor,
+        reduction = reduction,
+        dims = dims,
+        return.neighbor = TRUE,
+        k.param = k,
+        graph.name = neighbor_name
+      )
+
+      if (!neighbor_name %in% names(seu_neighbor@neighbors)) {
+        stop("Computed Neighbor object '", neighbor_name,
+             "' was not found in the Seurat object.")
+      }
+
+      neighbors <- seu_neighbor@neighbors[[neighbor_name]]
+      neighbors_method <- "seurat"
+
+    } else {
+      # restricted: recompute kNN WITHIN each group, build a named list
+      futile.logger::flog.info(
+        "Recomputing neighbors within each group of '%s'.", restrict_by
+      )
+
+      grp <- as.character(seu@meta.data[[restrict_by]])
+      names(grp) <- colnames(seu)
+      emb <- Seurat::Embeddings(seu[[reduction]])[, dims, drop = FALSE]
+
+      if (!all(colnames(seu) %in% rownames(emb))) {
+        stop(sprintf("Reduction '%s' does not contain all cells; cannot restrict by group.", reduction))
+      }
 
 
-    seu_neighbor <- Seurat::FindNeighbors(
-      seu_neighbor,
-      reduction = reduction,
-      dims = dims,
-      return.neighbor = TRUE,
-      k.param = k,
-      graph.name = neighbor_name
-    )
+      neighbors <- vector("list", ncol(seu))
+      names(neighbors) <- colnames(seu)
 
-    if (!neighbor_name %in% names(seu_neighbor@neighbors)) {
-      stop(
-        "Computed Neighbor object '", neighbor_name,
-        "' was not found in the Seurat object."
+      groups <- split(colnames(seu), grp)  # NA cells are dropped by split()
+
+      for (g in names(groups)) {
+        g_cells <- groups[[g]]
+        g_n     <- length(g_cells)
+
+        # cap k to group size; need at least 2 cells to have any neighbor
+        k_g <- min(k, g_n - 1L)
+        if (k_g < 1L) {
+          futile.logger::flog.warn(
+            "Group '%s' has %d cell(s); too small for neighbors. These cells get entropy 0.",
+            g, g_n
+          )
+          for (cell in g_cells) neighbors[[cell]] <- integer(0)
+          next
+        }
+        if (k_g < k) {
+          futile.logger::flog.warn(
+            "Group '%s' has %d cells; capping k from %d to %d for this group.",
+            g, g_n, k, k_g
+          )
+        }
+
+        nn_g <- RANN::nn2(emb[g_cells, , drop = FALSE], k = k_g + 1L)$nn.idx
+        # column 1 is self; map local row/col indices back to global cell indices
+        global_idx <- match(g_cells, colnames(seu))
+        for (r in seq_along(g_cells)) {
+          nbr_row    <- nn_g[r, ]
+          local_nbrs <- nbr_row[nbr_row != r]
+          neighbors[[g_cells[r]]] <- global_idx[local_nbrs]
+        }
+      }
+
+      # NA cells never entered any group -> ensure they exist as empty
+      na_cells <- colnames(seu)[is.na(grp)]
+      for (cell in na_cells) neighbors[[cell]] <- integer(0)
+
+      neighbors_method <- "custom"
+
+      avg_nn <- mean(lengths(neighbors))
+      n_zero <- sum(lengths(neighbors) == 0)
+      futile.logger::flog.info(
+        "Within-group neighbors: mean %.1f per cell; %d cells with 0 neighbors.",
+        avg_nn, n_zero
       )
     }
-
-    neighbors <- seu_neighbor@neighbors[[neighbor_name]]
-    neighbors_method <- "seurat"
-
   } else if (neighbors_method == "custom") {
     if (is.null(neighbors)) {
       stop("`neighbors` must be provided when neighbors_method = 'custom'.")
@@ -335,6 +442,45 @@ run_entropy <- function(
     futile.logger::flog.info("Using user-provided Seurat neighbor object.")
   }
 
+
+  #### Filter neighbors within groups (custom / seurat only; auto handled itself)
+  if (!is.null(restrict_by) && restrict_method %in% c("custom", "seurat")) {
+    futile.logger::flog.info(
+      "Filtering provided neighbors within groups of '%s'.", restrict_by
+    )
+
+    grp <- as.character(seu@meta.data[[restrict_by]])
+    names(grp) <- colnames(seu)
+    all_cells <- colnames(seu)
+
+    filtered <- vector("list", length(all_cells))
+    names(filtered) <- all_cells
+
+    n_before <- numeric(length(all_cells))
+    n_after  <- numeric(length(all_cells))
+
+    for (i in seq_along(all_cells)) {
+      cell   <- all_cells[i]
+      nn_idx <- get_neighbors(cell, seu, neighbors, restrict_method)
+      n_before[i] <- length(nn_idx)
+
+      cell_grp <- grp[cell]
+      if (is.na(cell_grp) || length(nn_idx) == 0) {
+        filtered[[cell]] <- integer(0)
+      } else {
+        filtered[[cell]] <- nn_idx[grp[nn_idx] == cell_grp & !is.na(grp[nn_idx])]
+      }
+      n_after[i] <- length(filtered[[cell]])
+    }
+
+    neighbors <- filtered
+    neighbors_method <- "custom"
+
+    futile.logger::flog.info(
+      "Within-group filtering: mean neighbors %.1f -> %.1f; %d cells now with 0 neighbors.",
+      mean(n_before), mean(n_after), sum(n_after == 0)
+    )
+  }
 
   ###################### NN finish
 

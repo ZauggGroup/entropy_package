@@ -25,7 +25,7 @@ new assay named `"assay_entropy"`.'><!-- mathjax --><script src="https://cdnjs.c
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
       </span>
     </div>
 
@@ -86,6 +86,7 @@ new assay named `"assay_entropy"`.</p>
 <span>  neighbors_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"custom"</span>, <span class="st">"seurat"</span><span class="op">)</span>,</span>
 <span>  neighbor_assay <span class="op">=</span> <span class="va">assay</span>,</span>
 <span>  features <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  restrict_by <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  output_path <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  add_assay <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  k <span class="op">=</span> <span class="fl">15</span>,</span>
@@ -138,6 +139,18 @@ restrict the entropy computation to. If `NULL` (default), entropy is
 computed for all features in `assay`. Subsetting applies only to `assay`
 (the scored features), not to `neighbor_assay` (which defines neighborhoods).
 In `"counts"` mode this also reduces runtime proportionally.</p></dd>
+
+
+<dt id="arg-restrict-by">restrict_by<a class="anchor" aria-label="anchor" href="#arg-restrict-by"></a></dt>
+<dd><p>Optional character string naming a column in
+`seu@meta.data` (e.g. `"celltype"`). If provided, each cell's neighbors are
+filtered to keep only those sharing the same value in this column, so
+entropy is computed within groups rather than across them. The existing
+neighbor graph is pruned (never recomputed), so it respects whatever method
+produced the neighbors. Neighborhoods shrink as a result, especially at
+group boundaries; cells with no within-group neighbors return entropy 0.
+If `NULL` (default), neighbors are used as-is (no restriction). Works in
+both normal and chunked mode.</p></dd>
 
 
 <dt id="arg-output-path">output_path<a class="anchor" aria-label="anchor" href="#arg-output-path"></a></dt>
