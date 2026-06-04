@@ -90,3 +90,47 @@ test_that("custom neighbors with < 11 neighbors are orphaned (entropy 0)", {
   expect_equal(r[cells[1], 1], 0)        # under-11 cell -> entropy 0
   expect_gt(r[cells[2], 1], 0)           # normal cell -> real value
 })
+
+
+
+
+test_that("add_entropy_score adds one metadata column per gene set", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  r <- run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 11, add_assay = TRUE)
+  sets <- list(setA = head(rownames(pbmc_small), 5),
+               setB = head(rownames(pbmc_small), 8))
+  r <- add_entropy_score(r, "RNA_entropy", sets)
+
+  expect_true(all(c("entropy_setA", "entropy_setB") %in% colnames(r@meta.data)))
+  expect_equal(length(r$entropy_setA), ncol(r))
+  expect_false(anyNA(r$entropy_setA))
+})
+
+test_that("add_entropy_score errors on missing entropy assay", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+  expect_error(
+    add_entropy_score(pbmc_small, "RNA_entropy", list(s = rownames(pbmc_small)[1:3])),
+    "not found"
+  )
+})
+
+test_that("add_entropy_score errors on missing genes unless force_drop", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  r <- run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 11, add_assay = TRUE)
+  good <- head(rownames(pbmc_small), 3)
+  sets <- list(s = c(good, "NOT_A_GENE"))
+
+  expect_error(add_entropy_score(r, "RNA_entropy", sets), "not in assay")
+
+  # force_drop = TRUE drops the missing one and succeeds
+  r2 <- add_entropy_score(r, "RNA_entropy", sets, force_drop = TRUE)
+  expect_true("entropy_s" %in% colnames(r2@meta.data))
+})

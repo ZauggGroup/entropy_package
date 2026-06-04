@@ -37,6 +37,11 @@
 #'   matrix to this file using `saveRDS()`.
 #' @param add_assay Logical. If `TRUE` (default), adds the entropy matrix to the
 #'   Seurat object as a new assay called `"{assay}_entropy"`.
+#' @param meta_name Optional character string. If provided, the per-cell mean
+#'   entropy is added to the Seurat object's metadata under this column name.
+#'   Works independently of `add_assay`. If either `add_assay = TRUE` or
+#'   `meta_name` is set, the function returns the Seurat object; if both are off,
+#'   it returns a data frame of mean entropy per cell.
 #' @param k Integer. Number of nearest neighbors to use when computing neighbors
 #'   internally. Must be at least 11, because the counts entropy estimator is
 #'   undefined below 11 neighbors. Default is 15.
@@ -84,6 +89,7 @@ run_entropy <- function(
     restrict_by = NULL,
     output_path = NULL,
     add_assay = TRUE,
+    meta_name = NULL,
     k = 15,
     reduction = NULL,
     dims = 20,
@@ -668,8 +674,9 @@ run_entropy <- function(
   }
 
 
-  if (add_assay) {
+  means <- colMeans(entropy_matrix)
 
+  if (add_assay) {
     entropy_assay <- if (inherits(seu[[assay]], "Assay5")) {
       SeuratObject::CreateAssay5Object(counts = entropy_matrix)
     } else {
@@ -677,29 +684,21 @@ run_entropy <- function(
     }
     assay_name <- paste0(assay, "_entropy")
     seu[[assay_name]] <- entropy_assay
+    futile.logger::flog.info("Entropy matrix added to Seurat object as '%s'.", assay_name)
+  }
 
-    # compute mean entropy per cell
-    means <- colMeans(entropy_matrix)
+  if (!is.null(meta_name) || add_assay) {
+    # name: user-provided meta_name wins, else the default
+    col <- if (!is.null(meta_name)) meta_name else paste0("entropy_mean_", assay)
+    seu[[col]] <- means
+    futile.logger::flog.info("Mean entropy added to metadata column '%s'.", col)
+  }
 
-    # add to metadata
-    meta_name <- paste0("entropy_mean_", assay)
-    seu[[meta_name]] <- means
-
-    futile.logger::flog.info(
-      "Entropy matrix added to Seurat object as '%s'.", assay_name
-    )
-
-    futile.logger::flog.info(
-      "Mean entropy added to metadata column '%s'.", meta_name
-    )
-
+  # return rule: object if we modified it (assay or meta), else the data frame
+  if (add_assay || !is.null(meta_name)) {
     return(seu)
-
   } else {
-    means <- colMeans(entropy_matrix)
-    Ent_mean <- as.data.frame(means)
-    return(Ent_mean)
-
+    return(as.data.frame(means))
   }
 
 }

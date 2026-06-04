@@ -25,7 +25,7 @@ new assay named `"assay_entropy"`.'><!-- mathjax --><script src="https://cdnjs.c
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.3</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -89,6 +89,7 @@ new assay named `"assay_entropy"`.</p>
 <span>  restrict_by <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  output_path <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  add_assay <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  meta_name <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  k <span class="op">=</span> <span class="fl">15</span>,</span>
 <span>  reduction <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  dims <span class="op">=</span> <span class="fl">20</span>,</span>
@@ -143,14 +144,16 @@ In `"counts"` mode this also reduces runtime proportionally.</p></dd>
 
 <dt id="arg-restrict-by">restrict_by<a class="anchor" aria-label="anchor" href="#arg-restrict-by"></a></dt>
 <dd><p>Optional character string naming a column in
-`seu@meta.data` (e.g. `"celltype"`). If provided, each cell's neighbors are
-filtered to keep only those sharing the same value in this column, so
-entropy is computed within groups rather than across them. The existing
-neighbor graph is pruned (never recomputed), so it respects whatever method
-produced the neighbors. Neighborhoods shrink as a result, especially at
-group boundaries; cells with no within-group neighbors return entropy 0.
-If `NULL` (default), neighbors are used as-is (no restriction). Works in
-both normal and chunked mode.</p></dd>
+`seu@meta.data` (e.g. `"celltype"`). If provided, entropy is computed
+within groups rather than across them. For `neighbors_method = "auto"`,
+neighbors are recomputed within each group so every cell gets exactly `k`
+neighbors from its own group. Groups with fewer than `k + 1` cells are too
+small to provide `k` neighbors; their cells are treated as orphans and
+return entropy 0, with a warning. For `"custom"` or `"seurat"`, the provided
+neighbor graph is pruned to within-group neighbors instead. Cells with `NA`
+in the column, or with no within-group neighbors, return entropy 0. If
+`NULL` (default), neighbors are used as-is. Works in both normal and chunked
+mode.</p></dd>
 
 
 <dt id="arg-output-path">output_path<a class="anchor" aria-label="anchor" href="#arg-output-path"></a></dt>
@@ -163,9 +166,18 @@ matrix to this file using `saveRDS()`.</p></dd>
 Seurat object as a new assay called `"assay_entropy"`.</p></dd>
 
 
+<dt id="arg-meta-name">meta_name<a class="anchor" aria-label="anchor" href="#arg-meta-name"></a></dt>
+<dd><p>Optional character string. If provided, the per-cell mean
+entropy is added to the Seurat object's metadata under this column name.
+Works independently of `add_assay`. If either `add_assay = TRUE` or
+`meta_name` is set, the function returns the Seurat object; if both are off,
+it returns a data frame of mean entropy per cell.</p></dd>
+
+
 <dt id="arg-k">k<a class="anchor" aria-label="anchor" href="#arg-k"></a></dt>
 <dd><p>Integer. Number of nearest neighbors to use when computing neighbors
-internally. Default is 15.</p></dd>
+internally. Must be at least 11, because the counts entropy estimator is
+undefined below 11 neighbors. Default is 15.</p></dd>
 
 
 <dt id="arg-reduction">reduction<a class="anchor" aria-label="anchor" href="#arg-reduction"></a></dt>

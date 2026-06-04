@@ -39,6 +39,7 @@ reference:
   - title: Main Function
     contents:
       - run_entropy
+      - add_entropy_score
   - title: Internal Functions
     contents:
       - calculate_entropy_for_cell

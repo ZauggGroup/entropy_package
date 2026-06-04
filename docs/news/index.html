@@ -23,7 +23,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">Entropy</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.3</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.0</span>
       </span>
     </div>
 
@@ -155,6 +155,41 @@
 <code><a href="../reference/run_entropy.html">run_entropy()</a></code> now works with both Seurat v4 and v5 objects.</li>
 <li>When no reduction exists and the assay has no scaled data, <code><a href="../reference/run_entropy.html">run_entropy()</a></code> now stops with a clear message instead of failing inside <code><a href="https://satijalab.org/seurat/reference/RunPCA.html" class="external-link">RunPCA()</a></code>.</li>
 <li>Silenced verbose PCA output and fixed a reduction-key warning for assay names containing underscores (e.g. <code>pca_sct</code>).</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.2.4" id="entropy-024">Entropy 0.2.4<a class="anchor" aria-label="anchor" href="#entropy-024"></a></h2>
+<div class="section level4">
+<h4 id="bug-fixes-0-2-4">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-2-4"></a></h4>
+<ul><li>Fixed <code><a href="../reference/run_entropy.html">run_entropy()</a></code> creating the wrong assay class on Seurat v4 objects. The entropy assay now matches the input object’s version (<code>Assay</code> for v4, <code>Assay5</code> for v5) instead of being chosen from the installed package version.</li>
+<li>Silenced remaining neighbor-computation console output during automatic neighbor finding.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="internal-0-2-4">Internal<a class="anchor" aria-label="anchor" href="#internal-0-2-4"></a></h4>
+<ul><li>Added a test covering Seurat v4 and v5 compatibility for <code><a href="../reference/run_entropy.html">run_entropy()</a></code>.</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.2.5" id="entropy-025">Entropy 0.2.5<a class="anchor" aria-label="anchor" href="#entropy-025"></a></h2>
+<div class="section level4">
+<h4 id="bug-fixes-0-2-5">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-2-5"></a></h4>
+<ul><li>
+<code><a href="../reference/run_entropy.html">run_entropy()</a></code> now requires <code>k &gt;= 11</code>, since the counts entropy estimator is undefined below 11 neighbors (previously this could crash).</li>
+<li>In <code>restrict_by</code> auto mode, groups with fewer than <code>k + 1</code> cells are now skipped (their cells return entropy 0) instead of being computed with a reduced, incomparable neighbor count.</li>
+<li>For custom and Seurat neighbor inputs, cells with fewer than 11 neighbors are now orphaned (entropy 0) with a summary warning, preventing the same crash.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="internal-0-2-5">Internal<a class="anchor" aria-label="anchor" href="#internal-0-2-5"></a></h4>
+<ul><li>Added tests covering basic runs, the <code>k &gt;= 11</code> check, within-group restriction, small-group orphaning, and custom-neighbor orphaning.</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.3.0" id="entropy-030">Entropy 0.3.0<a class="anchor" aria-label="anchor" href="#entropy-030"></a></h2>
+<div class="section level4">
+<h4 id="new-features-0-3-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-3-0"></a></h4>
+<ul><li>New function <code><a href="../reference/add_entropy_score.html">add_entropy_score()</a></code>: given a precomputed entropy assay and a named list of gene sets, it adds one metadata column per set (<code>entropy_&lt;set name&gt;</code>) holding the mean entropy of that set’s genes. A fast way to score pathways or regulons without recomputing entropy. Missing genes raise an error unless <code>force_drop = TRUE</code>; a set with no present genes always errors.</li>
+<li>
+<code><a href="../reference/run_entropy.html">run_entropy()</a></code> gains a <code>meta_name</code> argument: when set, the per-cell mean entropy is written to that metadata column regardless of <code>add_assay</code>. If either <code>add_assay = TRUE</code> or <code>meta_name</code> is set, the Seurat object is returned; otherwise a data frame of means is returned.</li>
 </ul></div>
 </div>
   </div>

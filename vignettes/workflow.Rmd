@@ -125,6 +125,55 @@ meaningful — the purpose here is to show the effect of the `restrict_by`
 argument on the computation, not to interpret the values.
 
 
+## Score gene sets with `add_entropy_score`
+
+Once entropy has been computed and stored as an assay (`add_assay = TRUE`), the
+`add_entropy_score()` function can quickly summarise the mean entropy of one or
+more gene sets and add each as a metadata column. It does not recompute
+anything, it simply averages the already stored per-gene entropy, so it is a
+fast way to score many pathways or regulons at once.
+
+We pass a named list of gene sets. Each name becomes a metadata column prefixed
+with `entropy_` (for example `Tcell` becomes `entropy_Tcell`). Here we use
+`force_drop = TRUE` so that any gene not present in the entropy assay is dropped
+with a warning rather than raising an error.
+
+```{r}
+gene_sets <- list(
+  Tcell = c("CD3D", "CD3E", "CD8A", "IL7R"),
+  Bcell = c("CD79A", "CD79B", "MS4A1")
+)
+
+result_counts <- add_entropy_score(
+  seu           = result_counts,
+  entropy_assay = "RNA_entropy",
+  features_list = gene_sets,
+  force_drop    = TRUE
+)
+
+head(result_counts[[c("entropy_Tcell", "entropy_Bcell")]])
+```
+
+## Visualise gene set entropy
+
+Because the scores are stored in the metadata, they can be visualised directly
+with Seurat's `FeaturePlot` on any existing reduction. `pbmc_small` ships with a
+t-SNE embedding, so we use that.
+
+```{r, fig.width = 7, fig.height = 3.5}
+FeaturePlot(
+  result_counts,
+  features  = c("entropy_Tcell", "entropy_Bcell"),
+  reduction = "tsne"
+)
+```
+
+Each cell is coloured by the mean entropy of the corresponding gene set, giving
+a per-cell view of how variable those genes are within each cell's
+neighbourhood. On a small demonstration dataset the values are mainly
+illustrative, but on a full dataset this is a quick way to compare the entropy
+of different pathways or regulons across cell populations.
+
 
 
 

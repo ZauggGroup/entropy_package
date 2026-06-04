@@ -145,3 +145,21 @@ Updated function documentation and vignettes
 
 * Added tests covering basic runs, the `k >= 11` check, within-group
   restriction, small-group orphaning, and custom-neighbor orphaning.
+  
+  
+  
+  
+# Entropy 0.3.0
+
+### New features
+
+* New function `add_entropy_score()`: given a precomputed entropy assay and a
+  named list of gene sets, it adds one metadata column per set
+  (`entropy_<set name>`) holding the mean entropy of that set's genes. A fast
+  way to score pathways or regulons without recomputing entropy. Missing genes
+  raise an error unless `force_drop = TRUE`; a set with no present genes always
+  errors.
+* `run_entropy()` gains a `meta_name` argument: when set, the per-cell mean
+  entropy is written to that metadata column regardless of `add_assay`. If
+  either `add_assay = TRUE` or `meta_name` is set, the Seurat object is
+  returned; otherwise a data frame of means is returned.

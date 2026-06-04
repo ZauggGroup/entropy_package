@@ -14,6 +14,7 @@ run_entropy(
   restrict_by = NULL,
   output_path = NULL,
   add_assay = TRUE,
+  meta_name = NULL,
   k = 15,
   reduction = NULL,
   dims = 20,
@@ -51,14 +52,16 @@ computed for all features in `assay`. Subsetting applies only to `assay`
 In `"counts"` mode this also reduces runtime proportionally.}
 
 \item{restrict_by}{Optional character string naming a column in
-`seu@meta.data` (e.g. `"celltype"`). If provided, each cell's neighbors are
-filtered to keep only those sharing the same value in this column, so
-entropy is computed within groups rather than across them. The existing
-neighbor graph is pruned (never recomputed), so it respects whatever method
-produced the neighbors. Neighborhoods shrink as a result, especially at
-group boundaries; cells with no within-group neighbors return entropy 0.
-If `NULL` (default), neighbors are used as-is (no restriction). Works in
-both normal and chunked mode.}
+`seu@meta.data` (e.g. `"celltype"`). If provided, entropy is computed
+within groups rather than across them. For `neighbors_method = "auto"`,
+neighbors are recomputed within each group so every cell gets exactly `k`
+neighbors from its own group. Groups with fewer than `k + 1` cells are too
+small to provide `k` neighbors; their cells are treated as orphans and
+return entropy 0, with a warning. For `"custom"` or `"seurat"`, the provided
+neighbor graph is pruned to within-group neighbors instead. Cells with `NA`
+in the column, or with no within-group neighbors, return entropy 0. If
+`NULL` (default), neighbors are used as-is. Works in both normal and chunked
+mode.}
 
 \item{output_path}{Optional character string. If provided, saves the full entropy
 matrix to this file using `saveRDS()`.}
@@ -66,8 +69,15 @@ matrix to this file using `saveRDS()`.}
 \item{add_assay}{Logical. If `TRUE` (default), adds the entropy matrix to the
 Seurat object as a new assay called `"{assay}_entropy"`.}
 
+\item{meta_name}{Optional character string. If provided, the per-cell mean
+entropy is added to the Seurat object's metadata under this column name.
+Works independently of `add_assay`. If either `add_assay = TRUE` or
+`meta_name` is set, the function returns the Seurat object; if both are off,
+it returns a data frame of mean entropy per cell.}
+
 \item{k}{Integer. Number of nearest neighbors to use when computing neighbors
-internally. Default is 15.}
+internally. Must be at least 11, because the counts entropy estimator is
+undefined below 11 neighbors. Default is 15.}
 
 \item{reduction}{Character. Name of an existing dimensional reduction in
 `seu` to use for neighbor and chunk computation (e.g. `"lsi"` for ATAC).
