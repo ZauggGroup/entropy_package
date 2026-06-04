@@ -110,3 +110,18 @@ Updated function documentation and vignettes
   now stops with a clear message instead of failing inside `RunPCA()`.
 * Silenced verbose PCA output and fixed a reduction-key warning for assay
   names containing underscores (e.g. `pca_sct`).
+  
+  
+# Entropy 0.2.4
+
+### Bug fixes
+
+* Fixed `run_entropy()` creating the wrong assay class on Seurat v4 objects.
+  The entropy assay now matches the input object's version (`Assay` for v4,
+  `Assay5` for v5) instead of being chosen from the installed package version.
+* Silenced remaining neighbor-computation console output during automatic
+  neighbor finding.
+
+### Internal
+
+* Added a test covering Seurat v4 and v5 compatibility for `run_entropy()`.

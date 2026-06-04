@@ -1,7 +1,7 @@
 Package: Entropy
 Type: Package
 Title: Entropy Estimation for Seurat Objects
-Version: 0.2.3
+Version: 0.2.4
 Authors@R: c(
     person("Aryan", "Kamal", email = "aryan.kamal@embl.de", role = c("aut", "cre")),
     person("Charles", "Dussiau", email = "charles.dussiau@embl.de", role = c("aut")),
@@ -22,7 +22,8 @@ Suggests:
     knitr,
     rmarkdown,
     BiocStyle,
-    parallel
+    parallel,
+    testthat (>= 3.0.0)
 Imports:
     futile.logger,
     Seurat,
@@ -34,3 +35,4 @@ Imports:
     RANN
 Depends: 
     R (>= 2.10)
+Config/testthat/edition: 3

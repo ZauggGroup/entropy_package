@@ -337,14 +337,15 @@ run_entropy <- function(
       Seurat::DefaultAssay(seu_neighbor) <- neighbor_assay
       neighbor_name <- paste0("entropy_", neighbor_assay, "_nn")
 
-      seu_neighbor <- Seurat::FindNeighbors(
+      seu_neighbor <- suppressMessages(Seurat::FindNeighbors(
         seu_neighbor,
         reduction = reduction,
         dims = dims,
         return.neighbor = TRUE,
         k.param = k,
-        graph.name = neighbor_name
-      )
+        graph.name = neighbor_name,
+        verbose = FALSE
+      ))
 
       if (!neighbor_name %in% names(seu_neighbor@neighbors)) {
         stop("Computed Neighbor object '", neighbor_name,
@@ -636,7 +637,7 @@ run_entropy <- function(
 
   if (add_assay) {
 
-    entropy_assay <- if (utils::packageVersion("SeuratObject") >= "5.0.0") {
+    entropy_assay <- if (inherits(seu[[assay]], "Assay5")) {
       SeuratObject::CreateAssay5Object(counts = entropy_matrix)
     } else {
       SeuratObject::CreateAssayObject(counts = entropy_matrix)
