@@ -125,3 +125,23 @@ Updated function documentation and vignettes
 ### Internal
 
 * Added a test covering Seurat v4 and v5 compatibility for `run_entropy()`.
+
+
+
+
+# Entropy 0.2.5
+
+### Bug fixes
+
+* `run_entropy()` now requires `k >= 11`, since the counts entropy estimator is
+  undefined below 11 neighbors (previously this could crash).
+* In `restrict_by` auto mode, groups with fewer than `k + 1` cells are now
+  skipped (their cells return entropy 0) instead of being computed with a
+  reduced, incomparable neighbor count.
+* For custom and Seurat neighbor inputs, cells with fewer than 11 neighbors are
+  now orphaned (entropy 0) with a summary warning, preventing the same crash.
+
+### Internal
+
+* Added tests covering basic runs, the `k >= 11` check, within-group
+  restriction, small-group orphaning, and custom-neighbor orphaning.

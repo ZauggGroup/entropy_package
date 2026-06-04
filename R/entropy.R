@@ -23,20 +23,23 @@
 #'   (the scored features), not to `neighbor_assay` (which defines neighborhoods).
 #'   In `"counts"` mode this also reduces runtime proportionally.
 #' @param restrict_by Optional character string naming a column in
-#'   `seu@meta.data` (e.g. `"celltype"`). If provided, each cell's neighbors are
-#'   filtered to keep only those sharing the same value in this column, so
-#'   entropy is computed within groups rather than across them. The existing
-#'   neighbor graph is pruned (never recomputed), so it respects whatever method
-#'   produced the neighbors. Neighborhoods shrink as a result, especially at
-#'   group boundaries; cells with no within-group neighbors return entropy 0.
-#'   If `NULL` (default), neighbors are used as-is (no restriction). Works in
-#'   both normal and chunked mode.
+#'   `seu@meta.data` (e.g. `"celltype"`). If provided, entropy is computed
+#'   within groups rather than across them. For `neighbors_method = "auto"`,
+#'   neighbors are recomputed within each group so every cell gets exactly `k`
+#'   neighbors from its own group. Groups with fewer than `k + 1` cells are too
+#'   small to provide `k` neighbors; their cells are treated as orphans and
+#'   return entropy 0, with a warning. For `"custom"` or `"seurat"`, the provided
+#'   neighbor graph is pruned to within-group neighbors instead. Cells with `NA`
+#'   in the column, or with no within-group neighbors, return entropy 0. If
+#'   `NULL` (default), neighbors are used as-is. Works in both normal and chunked
+#'   mode.
 #' @param output_path Optional character string. If provided, saves the full entropy
 #'   matrix to this file using `saveRDS()`.
 #' @param add_assay Logical. If `TRUE` (default), adds the entropy matrix to the
 #'   Seurat object as a new assay called `"{assay}_entropy"`.
 #' @param k Integer. Number of nearest neighbors to use when computing neighbors
-#'   internally. Default is 15.
+#'   internally. Must be at least 11, because the counts entropy estimator is
+#'   undefined below 11 neighbors. Default is 15.
 #' @param reduction Character. Name of an existing dimensional reduction in
 #'   `seu` to use for neighbor and chunk computation (e.g. `"lsi"` for ATAC).
 #'   If `NULL` (default), a PCA named `"pca_<neighbor_assay>"` is computed on
@@ -112,6 +115,13 @@ run_entropy <- function(
     "Assay '%s' contains %d cells and %d features",
     assay, ncol(seu), nrow(seu)
   )
+  ### cehck K
+
+  if (k < 11) {
+    stop(sprintf("k must be at least 11 (got %d). The counts entropy estimator is undefined below 11 neighbors.", k))
+  }
+
+
   ### check  feature
 
   if (!is.null(features)) {
@@ -379,24 +389,16 @@ run_entropy <- function(
         g_cells <- groups[[g]]
         g_n     <- length(g_cells)
 
-        # cap k to group size; need at least 2 cells to have any neighbor
-        k_g <- min(k, g_n - 1L)
-        if (k_g < 1L) {
+        if (g_n < k + 1L) {
           futile.logger::flog.warn(
-            "Group '%s' has %d cell(s); too small for neighbors. These cells get entropy 0.",
-            g, g_n
+            "Group '%s' has %d cells (< k+1 = %d); too small for %d neighbors. These cells get entropy 0.",
+            g, g_n, k + 1L, k
           )
           for (cell in g_cells) neighbors[[cell]] <- integer(0)
           next
         }
-        if (k_g < k) {
-          futile.logger::flog.warn(
-            "Group '%s' has %d cells; capping k from %d to %d for this group.",
-            g, g_n, k, k_g
-          )
-        }
 
-        nn_g <- RANN::nn2(emb[g_cells, , drop = FALSE], k = k_g + 1L)$nn.idx
+        nn_g <- RANN::nn2(emb[g_cells, , drop = FALSE], k = k + 1L)$nn.idx
         # column 1 is self; map local row/col indices back to global cell indices
         global_idx <- match(g_cells, colnames(seu))
         for (r in seq_along(g_cells)) {
@@ -505,6 +507,37 @@ run_entropy <- function(
       "Within-group filtering: mean neighbors %.1f -> %.1f; %d cells now with 0 neighbors.",
       mean(n_before), mean(n_after), sum(n_after == 0)
     )
+  }
+
+
+  #### Orphan cells with < 11 neighbors (custom / seurat only; counts estimator floor)
+  if (restrict_method %in% c("custom", "seurat")) {
+
+    all_cells <- colnames(seu)
+    pruned    <- vector("list", length(all_cells))
+    names(pruned) <- all_cells
+
+    n_orphaned <- 0L
+    for (i in seq_along(all_cells)) {
+      cell   <- all_cells[i]
+      nn_idx <- get_neighbors(cell, seu, neighbors, neighbors_method)
+      if (length(nn_idx) < 11L) {
+        pruned[[cell]] <- integer(0)
+        if (length(nn_idx) > 0L) n_orphaned <- n_orphaned + 1L
+      } else {
+        pruned[[cell]] <- nn_idx
+      }
+    }
+
+    neighbors <- pruned
+    neighbors_method <- "custom"
+
+    if (n_orphaned > 0L) {
+      futile.logger::flog.warn(
+        "%d of %d cells have fewer than 11 neighbors and will return entropy 0 (counts estimator requires >= 11).",
+        n_orphaned, length(all_cells)
+      )
+    }
   }
 
   ###################### NN finish
