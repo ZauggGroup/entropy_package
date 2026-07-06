@@ -163,3 +163,9 @@ Updated function documentation and vignettes
   entropy is written to that metadata column regardless of `add_assay`. If
   either `add_assay = TRUE` or `meta_name` is set, the Seurat object is
   returned; otherwise a data frame of means is returned.
+  
+  
+  
+# Entropy 0.3.1
+
+* Fixed a bug where using `meta_name` together with `add_assay = TRUE` could error and leave the object unmodified when `meta_name` collided with an existing assay name. The metadata column is now automatically renamed with a `_meta` suffix and a warning is emitted instead.

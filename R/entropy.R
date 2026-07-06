@@ -688,8 +688,17 @@ run_entropy <- function(
   }
 
   if (!is.null(meta_name) || add_assay) {
-    # name: user-provided meta_name wins, else the default
     col <- if (!is.null(meta_name)) meta_name else paste0("entropy_mean_", assay)
+
+    if (col %in% Seurat::Assays(seu)) {
+      new_col <- paste0(col, "_meta")
+      futile.logger::flog.warn(
+        "meta_name '%s' collides with an assay name in the object. Using '%s' instead.",
+        col, new_col
+      )
+      col <- new_col
+    }
+
     seu[[col]] <- means
     futile.logger::flog.info("Mean entropy added to metadata column '%s'.", col)
   }
