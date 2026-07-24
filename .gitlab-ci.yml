@@ -3,10 +3,9 @@ image: rocker/verse:4.5.3
 pages:
   stage: deploy
   script:
-    - R -e "install.packages(c('BiocManager', 'devtools', 'pkgdown', 'remotes', 'roxygen2'))"
-    - R -e "BiocManager::install(c('anndataR', 'BiocStyle', 'rhdf5'), ask = FALSE, update = FALSE)"
-    - R -e "options(repos = BiocManager::repositories()); remotes::install_deps(dependencies = c('Depends', 'Imports', 'LinkingTo', 'Suggests'), upgrade = 'never')"
-    - R -e "devtools::document()"
+    - R -e "needed <- setdiff(c('BiocManager', 'remotes'), rownames(installed.packages())); if (length(needed)) install.packages(needed)"
+    - R -e "if (!requireNamespace('BiocStyle', quietly = TRUE)) BiocManager::install('BiocStyle', dependencies = c('Depends', 'Imports', 'LinkingTo'), ask = FALSE, update = FALSE)"
+    - R -e "options(repos = BiocManager::repositories()); remotes::install_deps(dependencies = c('Depends', 'Imports', 'LinkingTo'), upgrade = 'never')"
     - R -e "devtools::test()"
     - R -e "remotes::install_local('.', dependencies = FALSE, upgrade = 'never')"
     - R -e "pkgdown::build_site(new_process = FALSE)"
