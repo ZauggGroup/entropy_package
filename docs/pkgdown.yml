@@ -1,11 +1,12 @@
-pandoc: 3.1.1
-pkgdown: 2.1.1
+pandoc: 3.8.3
+pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   getting_started: getting_started.html
   neighborhood: neighborhood.html
+  python_anndata_workflow: python_anndata_workflow.html
   workflow: workflow.html
-last_built: 2026-06-04T12:41Z
+last_built: 2026-07-24T14:10Z
 urls:
   reference: https://grp-zaugg.embl-community.io/entropy_package/reference
   article: https://grp-zaugg.embl-community.io/entropy_package/articles

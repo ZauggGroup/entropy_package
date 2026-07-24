@@ -71,7 +71,7 @@ calculate_entropy_for_cell <- function(cell_name, mat, neighbors_idx) {
 #' Calculate binary entropy for a single cell based on its neighbors (fast)
 #'
 #' @param cell_name Character. Name of the cell to compute entropy for.
-#' @param mat_bin Matrix. Binary matrix (features x cells), values in {0,1}.
+#' @param mat_bin Matrix. Binary matrix (features x cells), with values 0 or 1.
 #' @param neighbors_idx Integer vector of neighbor indices into mat_bin.
 #'
 #' @return A numeric vector of entropy values for each feature.
@@ -84,8 +84,8 @@ calculate_entropy_for_cell_binary_fast <- function(cell_name, mat_bin, neighbors
     return(ent)
   }
   counts <- rowCounts_CSC_cols(mat_bin, neighbors_idx)
-  if (n <= length(.binary_entropy_lookup)) {
-    ent <- .binary_entropy_lookup[[n]][counts + 1L]
+  if (n <= length(.entropy_cache$binary_entropy_lookup)) {
+    ent <- .entropy_cache$binary_entropy_lookup[[n]][counts + 1L]
   } else {
     p1 <- counts / n
     ent <- -(p1 * log2(p1) + (1 - p1) * log2(1 - p1))
@@ -184,13 +184,13 @@ prepare_chunks <- function(seu, chunk_cells, reduction, dims, neighbor_assay) {
     }
     n_subchunks <- ceiling(length(cluster_cell_names) / chunk_cells)
     pca_sub     <- Seurat::Embeddings(seu_chunk[[reduction]])[cluster_cell_names, dims]
-    km          <- kmeans(pca_sub, centers = n_subchunks, iter.max = 50, nstart = 3)
+    km          <- stats::kmeans(pca_sub, centers = n_subchunks, iter.max = 50, nstart = 3)
     split(cluster_cell_names, km$cluster)
   }), recursive = FALSE)
 
   futile.logger::flog.info(
     "Prepared %d chunks with median size %d cells.",
-    length(chunks), as.integer(median(lengths(chunks)))
+    length(chunks), as.integer(stats::median(lengths(chunks)))
   )
 
   return(chunks)
@@ -244,7 +244,7 @@ calculate_entropy_for_cell_old <- function(cell_name, mat, seu, nn_list = NULL ,
 #' neighbors (0/1) and computes Shannon entropy per feature (Bernoulli p0/p1).
 #'
 #' @param cell_name Character. Name of the cell to compute entropy for.
-#' @param mat_bin Matrix. Binary matrix (features x cells), values in {0,1}.
+#' @param mat_bin Matrix. Binary matrix (features x cells), with values 0 or 1.
 #' @param seu Seurat object.
 #' @param neighbors Neighbor definition. Either a named list or a Seurat Neighbor object.
 #' @param neighbors_method Character. One of `"custom"` or `"seurat"`.

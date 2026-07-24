@@ -11,7 +11,7 @@ output:
   BiocStyle::html_document
 ---
 
-**This vignette gives you a 1-minute summary of how to install and use the *Entropy* package for gene expression entropy estimation in Seurat objects. For more detailed workflows, check out the other vignettes.**
+**This vignette gives you a 1-minute summary of how to install and use the *Entropy* package for gene expression entropy estimation in Seurat objects and AnnData files. For more detailed workflows, check out the other vignettes.**
 
 ## Install the packages
 
@@ -29,6 +29,14 @@ If you receive an error message, make sure you installed the devtools package. I
 ```{r, eval = FALSE}
 install.packages("devtools")
 ```
+
+## Python and AnnData users
+
+Python and Scanpy users can compute entropy directly from an `.h5ad` file and
+join the result back into `adata.obs`. See the
+[Python and AnnData workflow](python_anndata_workflow.html) for the complete
+setup and examples.
+
 ## 📞 Contact and Support
 
 Please check out [**https://grp-zaugg.embl-community.io/entropy_package**](https://grp-zaugg.embl-community.io/entropy_package) for documentation, updates, and how to get in contact with us.

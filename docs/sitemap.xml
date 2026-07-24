@@ -3,10 +3,14 @@
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/articles/getting_started.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/articles/index.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/articles/neighborhood.html</loc></url>
+<url><loc>https://grp-zaugg.embl-community.io/entropy_package/articles/python_anndata_workflow.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/articles/workflow.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/authors.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/index.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/news/index.html</loc></url>
+<url><loc>https://grp-zaugg.embl-community.io/entropy_package/news/news-0.1.html</loc></url>
+<url><loc>https://grp-zaugg.embl-community.io/entropy_package/news/news-0.2.html</loc></url>
+<url><loc>https://grp-zaugg.embl-community.io/entropy_package/news/news-0.3.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/add_entropy_score.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/bub_opti.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/calculate_entropy_for_cell.html</loc></url>
@@ -17,7 +21,11 @@
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/get_neighbors.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/index.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/prepare_chunks.html</loc></url>
+<url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/prepare_chunks_emb.html</loc></url>
+<url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/read_h5ad_inputs.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/rowCounts_CSC_cols.html</loc></url>
 <url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/run_entropy.html</loc></url>
+<url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/run_entropy_h5ad.html</loc></url>
+<url><loc>https://grp-zaugg.embl-community.io/entropy_package/reference/validate_h5ad_matrix.html</loc></url>
 </urlset>
 

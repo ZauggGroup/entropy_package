@@ -13,26 +13,32 @@ Description: This package provides methods to estimate transcriptional entropy
     estimation using neighborhood gene expression and allows integration
     into standard Seurat workflows.
 License: LGPL (>= 3)
+URL: https://grp-zaugg.embl-community.io/entropy_package,
+    https://git.embl.de/grp-zaugg/entropy_package
 BugReports: https://git.embl.de/grp-zaugg/entropy_package/-/issues
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.3.2
 VignetteBuilder: knitr
 Suggests: 
+    anndataR (>= 1.0.0),
     knitr,
     rmarkdown,
     BiocStyle,
     parallel,
+    rhdf5,
     testthat (>= 3.0.0)
 Imports:
     futile.logger,
     Seurat,
+    SeuratObject,
     Matrix,
-    dplyr,
+    methods,
     progress,
     pracma,
     corpcor,
-    RANN
+    RANN,
+    stats
 Depends: 
-    R (>= 2.10)
+    R (>= 3.5.0)
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

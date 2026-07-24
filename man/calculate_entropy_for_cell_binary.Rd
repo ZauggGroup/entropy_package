@@ -15,7 +15,7 @@ calculate_entropy_for_cell_binary(
 \arguments{
 \item{cell_name}{Character. Name of the cell to compute entropy for.}
 
-\item{mat_bin}{Matrix. Binary matrix (features x cells), values in {0,1}.}
+\item{mat_bin}{Matrix. Binary matrix (features x cells), with values 0 or 1.}
 
 \item{seu}{Seurat object.}
 

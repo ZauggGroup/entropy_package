@@ -2,3 +2,4 @@
 
 export(add_entropy_score)
 export(run_entropy)
+export(run_entropy_h5ad)

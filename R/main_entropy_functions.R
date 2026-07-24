@@ -19,7 +19,7 @@ estimateur_bub_entropie_discrete <- function(X, force = FALSE) {
   k_eff <- min(N, 11)
   #A <- get_bub_precomputed(N, m, k_max = 11)
   if (force == FALSE && N <= 40 && m <= 5000 && k_eff <= 12) {
-    A <- .precomputed_bub[[N]][[m + 1]][[k_eff]]
+    A <- .entropy_cache$precomputed_bub[[N]][[m + 1]][[k_eff]]
   } else {
     #print("calculating")
     A <- bub_opti(N, m, k_eff)
@@ -46,12 +46,12 @@ get_bub_precomputed <- function(N, m, k_max) {
  # if ( !.data_loaded ) {
   #  .data_loaded <<- TRUE
   #  futile.logger::flog.info("Reading the precomputed table")
-  #  .precomputed_bub <<- qs::qread(system.file("extdata", "precomputed_bub_5000.qs", package = "Entropy"))
+  #  .entropy_cache$precomputed_bub <- qs::qread(system.file("extdata", "precomputed_bub_5000.qs", package = "Entropy"))
   #}
 
   # If within precomputed range
   if (N >= 1 && N <= 40 && m >= 0 && m <= 5000 && k_eff >= 1 && k_eff <= 12) {
-    result <- .precomputed_bub[[N]][[m + 1]][[k_eff]]
+    result <- .entropy_cache$precomputed_bub[[N]][[m + 1]][[k_eff]]
    # if (!is.null(result)) {
     return(result)
     #}
@@ -63,6 +63,5 @@ get_bub_precomputed <- function(N, m, k_max) {
   )
   return(bub_opti(N, m, k_eff))
 }
-
 
 

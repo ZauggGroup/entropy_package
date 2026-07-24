@@ -67,7 +67,7 @@ mode.}
 matrix to this file using `saveRDS()`.}
 
 \item{add_assay}{Logical. If `TRUE` (default), adds the entropy matrix to the
-Seurat object as a new assay called `"{assay}_entropy"`.}
+Seurat object as a new assay whose name ends in `"_entropy"`.}
 
 \item{meta_name}{Optional character string. If provided, the per-cell mean
 entropy is added to the Seurat object's metadata under this column name.
@@ -116,14 +116,17 @@ Defaults to \code{parallel::detectCores() - 1}.}
 }
 \value{
 If `add_assay = TRUE`, returns the modified Seurat object with a new assay
-  named `"{assay}_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
+  whose name ends in `"_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
   entropy values per cell.
 }
 \description{
 This function computes gene-level entropy across neighboring cells for a specified assay
 in a Seurat object. It optionally saves the entropy matrix to file and/or adds it as a
-new assay named `"{assay}_entropy"`.
+new assay whose name is the assay name followed by `"_entropy"`.
 }
 \examples{
+\dontrun{
+data("pbmc_small", package = "SeuratObject")
 run_entropy(pbmc_small, assay = "RNA", k = 15, mode = "counts")
+}
 }

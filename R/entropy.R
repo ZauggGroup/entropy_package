@@ -2,7 +2,7 @@
 #'
 #' This function computes gene-level entropy across neighboring cells for a specified assay
 #' in a Seurat object. It optionally saves the entropy matrix to file and/or adds it as a
-#' new assay named `"{assay}_entropy"`.
+#' new assay whose name is the assay name followed by `"_entropy"`.
 #'
 #' @param seu A Seurat object.
 #' @param assay Character. Name of the assay used for entropy calculation.
@@ -36,7 +36,7 @@
 #' @param output_path Optional character string. If provided, saves the full entropy
 #'   matrix to this file using `saveRDS()`.
 #' @param add_assay Logical. If `TRUE` (default), adds the entropy matrix to the
-#'   Seurat object as a new assay called `"{assay}_entropy"`.
+#'   Seurat object as a new assay whose name ends in `"_entropy"`.
 #' @param meta_name Optional character string. If provided, the per-cell mean
 #'   entropy is added to the Seurat object's metadata under this column name.
 #'   Works independently of `add_assay`. If either `add_assay = TRUE` or
@@ -73,12 +73,15 @@
 #' @param n_cores Integer. Number of cores to use when \code{parallelize = TRUE}.
 #'   Defaults to \code{parallel::detectCores() - 1}.
 #' @return If `add_assay = TRUE`, returns the modified Seurat object with a new assay
-#'   named `"{assay}_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
+#'   whose name ends in `"_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
 #'   entropy values per cell.
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#' data("pbmc_small", package = "SeuratObject")
 #' run_entropy(pbmc_small, assay = "RNA", k = 15, mode = "counts")
+#' }
 run_entropy <- function(
     seu,
     assay,
@@ -577,13 +580,13 @@ run_entropy <- function(
   ## prepare matrix
   if (mode == "counts") {
     futile.logger::flog.info("Reading the precomputed table (counts mode)")
-    .precomputed_bub <<- readRDS(system.file(
+    .entropy_cache$precomputed_bub <- readRDS(system.file(
       "extdata", "precomputed_bub_5000.rds",
       package = "Entropy"
     ))
   } else if (mode == "binary") {
     futile.logger::flog.info("Reading the binary entropy lookup (binary mode)")
-    .binary_entropy_lookup <<- readRDS(system.file(
+    .entropy_cache$binary_entropy_lookup <- readRDS(system.file(
       "extdata", "binary_entropy_lookup_100.rds",
       package = "Entropy"
     ))
@@ -629,7 +632,7 @@ run_entropy <- function(
       } else {
         mat_chunk <- mat[, all_nn_idx, drop = FALSE]
       }
-      idx_remap <- setNames(seq_along(all_nn_idx), all_nn_idx)
+      idx_remap <- stats::setNames(seq_along(all_nn_idx), all_nn_idx)
       chunk_matrix <- matrix(
         0,
         nrow     = nrow(mat),
@@ -711,8 +714,6 @@ run_entropy <- function(
   }
 
 }
-
-
 
 
 

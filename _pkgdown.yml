@@ -1,13 +1,15 @@
 url: https://grp-zaugg.embl-community.io/entropy_package
 template:
+  bootstrap: 5
+  bootswatch: flatly
   params:
-    bootswatch: flatly
     ganalytics: G-530L9SXFM1  # You can remove or update if you don’t want Google Analytics
-  news:
-    one_page: false
+news:
+  one_page: false
 navbar:
   left:
-    - href: index.html
+    - text: Home
+      href: index.html
     - text: Getting Started
       href: articles/getting_started.html
     - text: Vignettes
@@ -21,6 +23,9 @@ navbar:
         - text: Neighborhood
           desc: Neighborhood definition and usage modes
           href: articles/neighborhood.html
+        - text: Python and AnnData
+          desc: Run Entropy directly on an h5ad file from a Python workflow
+          href: articles/python_anndata_workflow.html
     - text: Reference
       href: reference/index.html
     - text: Changelog & News
@@ -34,16 +39,27 @@ articles:
       - getting_started
       - workflow
       - neighborhood
+      - python_anndata_workflow
 
 reference:
-  - title: Main Function
+  - title: Main functions
     contents:
       - run_entropy
+      - run_entropy_h5ad
       - add_entropy_score
-  - title: Internal Functions
+  - title: Entropy estimators
     contents:
       - calculate_entropy_for_cell
+      - calculate_entropy_for_cell_binary
+      - calculate_entropy_for_cell_binary_fast
       - estimateur_bub_entropie_discrete
       - get_bub_precomputed
-      - get_neighbors
       - bub_opti
+  - title: Internal helpers
+    contents:
+      - get_neighbors
+      - prepare_chunks
+      - prepare_chunks_emb
+      - read_h5ad_inputs
+      - rowCounts_CSC_cols
+      - validate_h5ad_matrix

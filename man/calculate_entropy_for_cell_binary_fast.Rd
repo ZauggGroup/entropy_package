@@ -9,7 +9,7 @@ calculate_entropy_for_cell_binary_fast(cell_name, mat_bin, neighbors_idx)
 \arguments{
 \item{cell_name}{Character. Name of the cell to compute entropy for.}
 
-\item{mat_bin}{Matrix. Binary matrix (features x cells), values in {0,1}.}
+\item{mat_bin}{Matrix. Binary matrix (features x cells), with values 0 or 1.}
 
 \item{neighbors_idx}{Integer vector of neighbor indices into mat_bin.}
 }
