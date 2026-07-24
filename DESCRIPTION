@@ -1,17 +1,17 @@
 Package: Entropy
 Type: Package
-Title: Entropy Estimation for Seurat Objects
-Version: 0.3.1
+Title: Entropy Estimation for Seurat and AnnData Objects
+Version: 0.3.5
 Authors@R: c(
     person("Aryan", "Kamal", email = "aryan.kamal@embl.de", role = c("aut", "cre")),
     person("Charles", "Dussiau", email = "charles.dussiau@embl.de", role = c("aut")),
     person("Amelia", "Kurti", email = "amelia.kurti@dkfz-heidelberg.de", role = c("aut")),
     person("Judith", "Zaugg", email = "judith.zaugg@embl.de", role = "aut"))
 Maintainer: Aryan Kamal <aryan.kamal@embl.de>
-Description: This package provides methods to estimate transcriptional entropy
-    for individual cells in Seurat objects. It supports BUB-based entropy
-    estimation using neighborhood gene expression and allows integration
-    into standard Seurat workflows.
+Description: Provides methods to estimate transcriptional entropy for
+    individual cells in Seurat objects and AnnData h5ad files. It supports
+    BUB-based and binary entropy estimation using neighborhood gene expression,
+    with direct integration into R, Seurat, Python, and Scanpy workflows.
 License: LGPL (>= 3)
 URL: https://grp-zaugg.embl-community.io/entropy_package,
     https://git.embl.de/grp-zaugg/entropy_package

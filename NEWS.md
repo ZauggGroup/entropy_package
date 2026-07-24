@@ -169,3 +169,61 @@ Updated function documentation and vignettes
 # Entropy 0.3.1
 
 * Fixed a bug where using `meta_name` together with `add_assay = TRUE` could error and leave the object unmodified when `meta_name` collided with an existing assay name. The metadata column is now automatically renamed with a `_meta` suffix and a warning is emitted instead.
+
+
+# Entropy 0.3.5
+
+## Direct Python and AnnData support
+
+* Added `run_entropy_h5ad()`, a Seurat-free entry point that computes
+  transcriptional entropy directly from an AnnData `.h5ad` file. Python and
+  Scanpy users can now run the same entropy engine without first converting
+  their data into a Seurat object.
+
+* Added direct reading of expression matrices from `adata.X` or a named AnnData
+  layer such as `adata.layers["counts"]`. Cell identifiers, feature identifiers,
+  PCA embeddings from `adata.obsm`, and grouping variables from `adata.obs` are
+  preserved and validated.
+
+* Added automatic k-nearest-neighbor construction from an AnnData embedding,
+  custom-neighbor support, and `restrict_by` support for computing neighborhoods
+  within cell types, samples, batches, conditions, or other `adata.obs` groups.
+
+* Added both count-based BUB entropy and binary presence/absence entropy for
+  `.h5ad` inputs. The returned data frame contains one value per cell in the
+  clearly named `Entropy_mean` column, ready to join back into `adata.obs`.
+
+* Added feature-restricted scoring, memory-aware chunked computation, optional
+  parallel chunk processing on macOS and Linux, and optional saving of the full
+  gene-by-cell entropy matrix.
+
+## Python-friendly documentation and examples
+
+* Added a complete Python and AnnData vignette covering installation, raw-count
+  preservation, PCA preparation in Scanpy, running Entropy in R, transferring
+  results back to Python, counts and binary modes, within-group neighborhoods,
+  chunking, selected genes, full-matrix output, and optional `rpy2` usage.
+
+* Added real numerical output, distribution comparisons, and Scanpy UMAP
+  visualizations so users can see what the results look like instead of only
+  reading code.
+
+* Added a Python/AnnData introduction and minimal end-to-end example to the
+  package homepage.
+
+## Testing and package infrastructure
+
+* Added a synthetic 1,200-cell AnnData fixture and tests for counts mode, binary
+  mode, automatic neighbors, within-cell-type restriction, and agreement
+  between chunked and unchunked computation.
+
+* Added explicit validation for missing layers and embeddings, invalid feature
+  names, non-finite or negative matrices, non-integer count data, invalid
+  dimensions, invalid neighbor counts, and incompatible optional dependencies.
+
+* Added `anndataR` and `rhdf5` as optional dependencies. Direct h5ad support
+  requires R 4.5.0 or newer, while the existing Seurat workflow remains
+  available on older supported R versions.
+
+* Updated the pkgdown reference index, GitLab Pages configuration, generated
+  documentation, and continuous-integration tests for the new workflow.
