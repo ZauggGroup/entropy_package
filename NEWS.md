@@ -173,57 +173,38 @@ Updated function documentation and vignettes
 
 # Entropy 0.3.5
 
-## Direct Python and AnnData support
+## New functionality
 
-* Added `run_entropy_h5ad()`, a Seurat-free entry point that computes
-  transcriptional entropy directly from an AnnData `.h5ad` file. Python and
-  Scanpy users can now run the same entropy engine without first converting
-  their data into a Seurat object.
+* Added `run_entropy_h5ad()` for entropy estimation directly from AnnData
+  `.h5ad` files, without conversion to a Seurat object.
 
-* Added direct reading of expression matrices from `adata.X` or a named AnnData
-  layer such as `adata.layers["counts"]`. Cell identifiers, feature identifiers,
-  PCA embeddings from `adata.obsm`, and grouping variables from `adata.obs` are
-  preserved and validated.
+* Added support for expression data in `adata.X` or a named AnnData layer,
+  embeddings in `adata.obsm`, and grouping variables in `adata.obs`. Cell and
+  feature identifiers are preserved in the returned results.
 
-* Added automatic k-nearest-neighbor construction from an AnnData embedding,
-  custom-neighbor support, and `restrict_by` support for computing neighborhoods
-  within cell types, samples, batches, conditions, or other `adata.obs` groups.
-
-* Added both count-based BUB entropy and binary presence/absence entropy for
-  `.h5ad` inputs. The returned data frame contains one value per cell in the
-  clearly named `Entropy_mean` column, ready to join back into `adata.obs`.
-
-* Added feature-restricted scoring, memory-aware chunked computation, optional
-  parallel chunk processing on macOS and Linux, and optional saving of the full
+* The h5ad interface supports count-based and binary entropy, automatic or
+  custom neighbors, within-group neighborhood restriction, selected features,
+  chunked computation, optional parallelization, and saving the full
   gene-by-cell entropy matrix.
 
-## Python-friendly documentation and examples
+* Per-cell h5ad results are returned in the `Entropy_mean` column for direct
+  alignment with `adata.obs`.
 
-* Added a complete Python and AnnData vignette covering installation, raw-count
-  preservation, PCA preparation in Scanpy, running Entropy in R, transferring
-  results back to Python, counts and binary modes, within-group neighborhoods,
-  chunking, selected genes, full-matrix output, and optional `rpy2` usage.
+## Documentation and testing
 
-* Added real numerical output, distribution comparisons, and Scanpy UMAP
-  visualizations so users can see what the results look like instead of only
-  reading code.
+* Added a Python and AnnData vignette covering Scanpy data preparation,
+  count-based and binary analyses, within-group neighborhoods, chunking,
+  selected features, result transfer, and visualization.
 
-* Added a Python/AnnData introduction and minimal end-to-end example to the
-  package homepage.
-
-## Testing and package infrastructure
-
-* Added a synthetic 1,200-cell AnnData fixture and tests for counts mode, binary
-  mode, automatic neighbors, within-cell-type restriction, and agreement
+* Added tests using a synthetic AnnData object for automatic neighbors,
+  count-based and binary entropy, within-cell-type restriction, and agreement
   between chunked and unchunked computation.
 
-* Added explicit validation for missing layers and embeddings, invalid feature
-  names, non-finite or negative matrices, non-integer count data, invalid
-  dimensions, invalid neighbor counts, and incompatible optional dependencies.
+* Added validation for h5ad layers, embeddings, dimensions, feature names,
+  count matrices, neighborhood size, and optional dependency versions.
 
-* Added `anndataR` and `rhdf5` as optional dependencies. Direct h5ad support
-  requires R 4.5.0 or newer, while the existing Seurat workflow remains
-  available on older supported R versions.
+## Compatibility
 
-* Updated the pkgdown reference index, GitLab Pages configuration, generated
-  documentation, and continuous-integration tests for the new workflow.
+* Direct h5ad support requires R 4.5.0 or newer, `anndataR` 1.0.0 or newer,
+  and `rhdf5`. These remain optional dependencies; the existing Seurat
+  interface is unchanged.
