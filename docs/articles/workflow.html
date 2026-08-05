@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Entropy</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,6 +44,7 @@
 <li><a class="dropdown-item" href="../articles/getting_started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/workflow.html">Full Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/neighborhood.html">Neighborhood</a></li>
+    <li><a class="dropdown-item" href="../articles/entropy_density_diagnostic.html">Density Diagnostic</a></li>
     <li><a class="dropdown-item" href="../articles/python_anndata_workflow.html">Python and AnnData</a></li>
   </ul>
 </li>
@@ -71,7 +72,7 @@
                         <h4 data-toc-skip class="author">Aryan Kamal,
 Charles Dussiau, Amelia Kurti, Judith Zaugg</h4>
             
-            <h4 data-toc-skip class="date">24 July 2026</h4>
+            <h4 data-toc-skip class="date">5 August 2026</h4>
       
 
       <div class="d-none name"><code>workflow.Rmd</code></div>
@@ -115,19 +116,19 @@ Seurat object.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"counts"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:02] Assay 'RNA' found and set as default assay.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:02] Starting entropy estimation for assay: RNA</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:02] Assay 'RNA' contains 80 cells and 230 features</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:02] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:15] Assay 'RNA' found and set as default assay.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:15] Starting entropy estimation for assay: RNA</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:15] Assay 'RNA' contains 80 cells and 230 features</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:15] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in svd.function(A = t(x = object), nv = npcs, ...): You're computing</span></span>
 <span><span class="co">## too large a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in svd.function(A = t(x = object), nv = npcs, ...): did not</span></span>
 <span><span class="co">## converge--results might be invalid!; try increasing work or maxit</span></span></code></pre>
-<pre><code><span><span class="co">## WARN [2026-07-24 16:11:02] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:02] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:02] Reading the precomputed table (counts mode)</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:06] Entropy matrix added to Seurat object as 'RNA_entropy'.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:06] Mean entropy added to metadata column 'entropy_mean_RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## WARN [2026-08-05 19:10:15] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:15] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:15] Reading the precomputed table (counts mode)</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:19] Entropy matrix added to Seurat object as 'RNA_entropy'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:19] Mean entropy added to metadata column 'entropy_mean_RNA'.</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="inspect-entropy-assay">Inspect entropy assay<a class="anchor" aria-label="anchor" href="#inspect-entropy-assay"></a>
@@ -168,18 +169,18 @@ and computes Shannon entropy.</p>
 <span>  add_assay <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"binary"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:06] Assay 'RNA' found and set as default assay.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:06] Starting entropy estimation for assay: RNA</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:06] Assay 'RNA' contains 80 cells and 230 features</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:06] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Assay 'RNA' found and set as default assay.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Starting entropy estimation for assay: RNA</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Assay 'RNA' contains 80 cells and 230 features</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in svd.function(A = t(x = object), nv = npcs, ...): You're computing</span></span>
 <span><span class="co">## too large a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in svd.function(A = t(x = object), nv = npcs, ...): did not</span></span>
 <span><span class="co">## converge--results might be invalid!; try increasing work or maxit</span></span></code></pre>
-<pre><code><span><span class="co">## WARN [2026-07-24 16:11:06] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:06] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Binarizing matrix (counts &gt; 0) for binary entropy.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Reading the binary entropy lookup (binary mode)</span></span></code></pre>
+<pre><code><span><span class="co">## WARN [2026-08-05 19:10:20] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Binarizing matrix (counts &gt; 0) for binary entropy.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Reading the binary entropy lookup (binary mode)</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="inspect-binary-entropy-output">Inspect binary entropy output<a class="anchor" aria-label="anchor" href="#inspect-binary-entropy-output"></a>
@@ -222,20 +223,20 @@ computed <em>within</em> groups rather than across them. Here we use the
 <span>  mode <span class="op">=</span> <span class="st">"counts"</span>,</span>
 <span>  restrict_by <span class="op">=</span> <span class="st">"groups"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Assay 'RNA' found and set as default assay.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Starting entropy estimation for assay: RNA</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Assay 'RNA' contains 80 cells and 230 features</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Neighbors will be restricted within groups defined by metadata column 'groups'.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Assay 'RNA' found and set as default assay.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Starting entropy estimation for assay: RNA</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Assay 'RNA' contains 80 cells and 230 features</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Neighbors will be restricted within groups defined by metadata column 'groups'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Reduction 'pca_RNA' not found. Running PCA on assay 'RNA'.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in svd.function(A = t(x = object), nv = npcs, ...): You're computing</span></span>
 <span><span class="co">## too large a percentage of total singular values, use a standard svd instead.</span></span></code></pre>
 <pre><code><span><span class="co">## Warning in svd.function(A = t(x = object), nv = npcs, ...): did not</span></span>
 <span><span class="co">## converge--results might be invalid!; try increasing work or maxit</span></span></code></pre>
-<pre><code><span><span class="co">## WARN [2026-07-24 16:11:07] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Recomputing neighbors within each group of 'groups'.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Within-group neighbors: mean 15.0 per cell; 0 cells with 0 neighbors.</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:07] Reading the precomputed table (counts mode)</span></span></code></pre>
+<pre><code><span><span class="co">## WARN [2026-08-05 19:10:20] Requested dims up to 20 but 'pca_RNA' has 19. Capping.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] No neighbors provided. Computing neighbors using assay 'RNA'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Recomputing neighbors within each group of 'groups'.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Within-group neighbors: mean 15.0 per cell; 0 cells with 0 neighbors.</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:20] Reading the precomputed table (counts mode)</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="compare-unrestricted-vs-restricted">Compare unrestricted vs restricted<a class="anchor" aria-label="anchor" href="#compare-unrestricted-vs-restricted"></a>
@@ -285,8 +286,8 @@ error.</p>
 <span>  features_list <span class="op">=</span> <span class="va">gene_sets</span>,</span>
 <span>  force_drop    <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:11] Added metadata column 'entropy_Tcell' (mean entropy of 4 features).</span></span></code></pre>
-<pre><code><span><span class="co">## INFO [2026-07-24 16:11:11] Added metadata column 'entropy_Bcell' (mean entropy of 3 features).</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:24] Added metadata column 'entropy_Tcell' (mean entropy of 4 features).</span></span></code></pre>
+<pre><code><span><span class="co">## INFO [2026-08-05 19:10:24] Added metadata column 'entropy_Bcell' (mean entropy of 3 features).</span></span></code></pre>
 <div class="sourceCode" id="cb55"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">result_counts</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"entropy_Tcell"</span>, <span class="st">"entropy_Bcell"</span><span class="op">)</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##                entropy_Tcell entropy_Bcell</span></span>

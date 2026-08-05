@@ -5,14 +5,14 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Entropy Estimation for Seurat Objects • Entropy</title>
+<title>Entropy Estimation for Seurat and AnnData Objects • Entropy</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Entropy Estimation for Seurat Objects">
-<meta name="description" content="This package provides methods to estimate transcriptional entropy for individual cells in Seurat objects. It supports BUB-based entropy estimation using neighborhood gene expression and allows integration into standard Seurat workflows.">
-<meta property="og:description" content="This package provides methods to estimate transcriptional entropy for individual cells in Seurat objects. It supports BUB-based entropy estimation using neighborhood gene expression and allows integration into standard Seurat workflows.">
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Entropy Estimation for Seurat and AnnData Objects">
+<meta name="description" content="Provides methods to estimate transcriptional entropy for individual cells in Seurat objects and AnnData h5ad files. It supports BUB-based and binary entropy estimation using neighborhood gene expression, with direct integration into R, Seurat, Python, and Scanpy workflows. Diagnostic tools assess whether per-cell entropy is associated with local embedding density or other covariates without treating residuals as corrected entropy scores.">
+<meta property="og:description" content="Provides methods to estimate transcriptional entropy for individual cells in Seurat objects and AnnData h5ad files. It supports BUB-based and binary entropy estimation using neighborhood gene expression, with direct integration into R, Seurat, Python, and Scanpy workflows. Diagnostic tools assess whether per-cell entropy is associated with local embedding density or other covariates without treating residuals as corrected entropy scores.">
 <!-- Global site tag (gtag.js) - Google Analytics --><script async src="https://www.googletagmanager.com/gtag/js?id=G-530L9SXFM1"></script><script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -29,7 +29,7 @@
 
     <a class="navbar-brand me-2" href="index.html">Entropy</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,6 +46,7 @@
 <li><a class="dropdown-item" href="articles/getting_started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="articles/workflow.html">Full Workflow</a></li>
     <li><a class="dropdown-item" href="articles/neighborhood.html">Neighborhood</a></li>
+    <li><a class="dropdown-item" href="articles/entropy_density_diagnostic.html">Density Diagnostic</a></li>
     <li><a class="dropdown-item" href="articles/python_anndata_workflow.html">Python and AnnData</a></li>
   </ul>
 </li>
@@ -64,36 +65,57 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><div class="section level1">
-<div class="page-header"><h1 id="entropy-estimate-cell-level-entropy-from-gene-expression-profiles">Entropy: Estimate Cell-Level Entropy from Gene Expression Profiles<a class="anchor" aria-label="anchor" href="#entropy-estimate-cell-level-entropy-from-gene-expression-profiles"></a>
+<div class="page-header"><h1 id="entropy">Entropy<a class="anchor" aria-label="anchor" href="#entropy"></a>
 </h1></div>
-<p>The <em>Entropy</em> package allows you to compute gene-level entropy for single cells based on a Seurat object. It provides a flexible and efficient way to measure transcriptional variability and plasticity, with support for neighbor-aware entropy computation and integration into Seurat workflows.</p>
-<div class="section level3">
-<h3 id="visit-the-entropy-package-webpage">
-<a href="https://grp-zaugg.embl-community.io/entropy_package/index.html">Visit the Entropy package Webpage</a><a class="anchor" aria-label="anchor" href="#visit-the-entropy-package-webpage"></a>
-</h3>
-<hr>
+<p><code>Entropy</code> estimates cell-level transcriptional entropy from single-cell expression data. Entropy is calculated across local cell neighborhoods and can be used to investigate transcriptional variability, cellular plasticity, and changes in cell identity.</p>
+<p><a href="https://grp-zaugg.embl-community.io/entropy_package/">Package documentation</a></p>
+<div class="section level2">
+<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
+</h2>
+<p>The package provides count-based entropy estimation using the best upper bound (BUB) estimator and binary entropy estimation for presence/absence data. Analyses can be performed directly from either Seurat objects or AnnData <code>.h5ad</code> files.</p>
+<p>Main capabilities include:</p>
+<ul>
+<li>automatic PCA-based nearest-neighbor construction and custom neighbor input;</li>
+<li>restriction of neighborhoods within biological or technical groups;</li>
+<li>count-based and binary entropy estimation;</li>
+<li>scoring of selected feature sets;</li>
+<li>chunked and parallel computation for larger datasets;</li>
+<li>per-cell summaries and optional gene-by-cell entropy output.</li>
+</ul>
 </div>
 <div class="section level2">
-<h2 id="mag-summary">🔍 Summary<a class="anchor" aria-label="anchor" href="#mag-summary"></a>
+<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>Cellular entropy provides a quantitative measure of transcriptional uncertainty, useful in studies of differentiation, plasticity, or cellular identity. This package enables estimation of gene expression entropy across neighborhoods of cells, and adds the result back into the Seurat object as a new assay.</p>
-<p>Key features: - Uses BUB estimator with optional precomputed coefficients for speed - Works directly on any Seurat object - Allows user-supplied neighbor lists or uses PCA-based kNN graph - Returns either a summary matrix or adds a full assay to the Seurat object</p>
-<hr>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install-deprecated.html" class="external-link">install_gitlab</a></span><span class="op">(</span></span>
+<span>  <span class="st">"grp-zaugg/entropy_package"</span>,</span>
+<span>  host <span class="op">=</span> <span class="st">"git.embl.de"</span>,</span>
+<span>  force <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="package-installation">📦 Installation<a class="anchor" aria-label="anchor" href="#package-installation"></a>
+<h2 id="anndata-support">AnnData support<a class="anchor" aria-label="anchor" href="#anndata-support"></a>
 </h2>
-<pre><code><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://devtools.r-lib.org/" class="external-link">devtools</a></span><span class="op">)</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install-deprecated.html" class="external-link">install_gitlab</a></span><span class="op">(</span><span class="st">"grp-zaugg/entropy_package"</span>, host <span class="op">=</span> <span class="st">"git.embl.de"</span>, force <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre>
-<hr>
-<div class="section level3">
-<h3 id="mailbox_with_mail-get-help-and-contact-us">📬 Get help and contact us<a class="anchor" aria-label="anchor" href="#mailbox_with_mail-get-help-and-contact-us"></a>
-</h3>
-<p>If you have questions or comments about the Entropy package, we’re happy to hear from you. We welcome inquiries related to both the scientific methodology and the technical implementation.</p>
-<p>For method-related questions, please contact Judith B. Zaugg (<a href="mailto:judith.zaugg@embl.de" class="email">judith.zaugg@embl.de</a>) or Charles Dussiau (<a href="mailto:charles.dussiau@embl.de" class="email">charles.dussiau@embl.de</a>).</p>
-<p>For technical or implementation-related questions, contact Aryan Kamal (<a href="mailto:aryan.kamal@embl.de" class="email">aryan.kamal@embl.de</a>).</p>
-<p>If you have questions, doubts, ideas or problems, please use the <a href="https://git.embl.de/grp-zaugg/entropy_package/-/issues" class="external-link">Gitlab Issue Tracker</a>. We will respond in a timely manner.</p>
+<p><code><a href="reference/run_entropy_h5ad.html">run_entropy_h5ad()</a></code> provides direct support for AnnData <code>.h5ad</code> files without requiring conversion to a Seurat object. It reads expression data, dimensional reductions, and observation metadata while preserving AnnData cell and feature identifiers. Results are returned as per-cell values that can be joined to <code>adata.obs</code>.</p>
+<p>Direct h5ad support requires R 4.5.0 or newer, <code>anndataR</code> 1.0.0 or newer, and <code>rhdf5</code>. Installation, data preparation, analysis options, result validation, and Scanpy visualization are described in the <a href="articles/python_anndata_workflow.html">Python and AnnData workflow</a>.</p>
 </div>
+<div class="section level2">
+<h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
+</h2>
+<ul>
+<li><a href="articles/getting_started.html">Getting started</a></li>
+<li><a href="articles/workflow.html">Full Seurat workflow</a></li>
+<li><a href="articles/neighborhood.html">Neighborhood definition</a></li>
+<li><a href="articles/python_anndata_workflow.html">Python and AnnData workflow</a></li>
+<li><a href="reference/index.html">Function reference</a></li>
+</ul>
+</div>
+<div class="section level2">
+<h2 id="support">Support<a class="anchor" aria-label="anchor" href="#support"></a>
+</h2>
+<p>For questions about the methodology, contact Judith B. Zaugg (<a href="mailto:judith.zaugg@embl.de" class="email">judith.zaugg@embl.de</a>) or Charles Dussiau (<a href="mailto:charles.dussiau@embl.de" class="email">charles.dussiau@embl.de</a>).</p>
+<p>For technical and implementation questions, contact Aryan Kamal (<a href="mailto:aryan.kamal@embl.de" class="email">aryan.kamal@embl.de</a>).</p>
+<p>Bug reports and feature requests can be submitted through the <a href="https://git.embl.de/grp-zaugg/entropy_package/-/issues" class="external-link">GitLab issue tracker</a>.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

@@ -1,7 +1,7 @@
 Package: Entropy
 Type: Package
 Title: Entropy Estimation for Seurat and AnnData Objects
-Version: 0.3.5
+Version: 0.3.6
 Authors@R: c(
     person("Aryan", "Kamal", email = "aryan.kamal@embl.de", role = c("aut", "cre")),
     person("Charles", "Dussiau", email = "charles.dussiau@embl.de", role = c("aut")),
@@ -12,6 +12,9 @@ Description: Provides methods to estimate transcriptional entropy for
     individual cells in Seurat objects and AnnData h5ad files. It supports
     BUB-based and binary entropy estimation using neighborhood gene expression,
     with direct integration into R, Seurat, Python, and Scanpy workflows.
+    Diagnostic tools assess whether per-cell entropy is associated with local
+    embedding density or other covariates without treating residuals as
+    corrected entropy scores.
 License: LGPL (>= 3)
 URL: https://grp-zaugg.embl-community.io/entropy_package,
     https://git.embl.de/grp-zaugg/entropy_package
@@ -37,6 +40,7 @@ Imports:
     pracma,
     corpcor,
     RANN,
+    ggplot2,
     stats
 Depends: 
     R (>= 3.5.0)

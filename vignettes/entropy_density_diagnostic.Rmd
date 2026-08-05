@@ -1,0 +1,340 @@
+---
+title: "Diagnosing Density Confounding in Entropy Scores"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Diagnosing Density Confounding in Entropy Scores}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 5,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+## Motivation: why density matters
+
+The entropy score measures cell-to-cell transcriptional variability within a
+cell's (k)-nearest-neighbour neighbourhood. We often interpret a high score as
+evidence of high plasticity, but local geometry can create the same pattern.
+
+Imagine a compact population and a sparse population in the same embedding.
+Cells in the sparse population have looser neighbourhoods: even their nearest
+neighbours are relatively far away. Those neighbours are therefore more likely
+to differ transcriptionally, which can mechanically increase the measured
+variability and entropy. A cell may consequently receive a high entropy score
+because it is unusual or isolated, rather than because it belongs to a truly
+plastic state.
+
+Before trusting a high-entropy population, it is useful to ask a narrower
+question: **is its entropy distinguishable from an effect of local
+neighbourhood density?**
+
+## What the diagnostic does
+
+`entropy_density_diagnostic()` performs four main checks:
+
+1. It measures local sparsity as the mean distance to each cell's (k) nearest
+   neighbours. Larger values mean a sparser neighbourhood.
+2. It reports the global Spearman correlation between entropy and mean
+   neighbour distance.
+3. It fits `entropy ~ density` and returns a residual for every cell.
+4. If a Seurat metadata column is supplied as `group`, it summarizes and plots
+   those residuals by group.
+
+The residual is observed entropy minus predicted entropy:
+
+- a residual near zero means that entropy is close to what the model predicts;
+- a positive residual means entropy is higher than the predictor would suggest;
+- a negative residual means entropy is lower than the predictor would suggest.
+
+For a group, residuals centred near zero indicate that its entropy is not
+separable from the density trend. A group clearly above zero has entropy beyond
+what density alone predicts and is therefore more interesting for follow-up.
+
+## Crucial caveat: this is a diagnostic, not a correction
+
+**Do not use these residuals as “corrected entropy.”**
+
+A genuinely plastic biological state may itself occupy a diffuse, sparse part
+of an embedding. Density and plasticity can therefore be biologically linked,
+rather than acting as independent technical and biological variables.
+Regressing entropy on density can remove real biological signal as easily as it
+can reveal a geometric association.
+
+This function flags whether an entropy signal is separable from density; it
+does not purify the score or establish causal direction. A group whose entropy
+is explained by density is not proven to be non-plastic. It is simply not
+distinguishable from a density effect using entropy alone. Orthogonal evidence
+is needed to make a biological claim.
+
+## A self-contained example
+
+The following simulation creates a small Seurat object, a two-dimensional
+embedding, three cell states, and an entropy-like score. One state is made more
+spatially diffuse, while another receives additional entropy not fully driven
+by its embedding density.
+
+```{r simulate-data}
+library(Entropy)
+
+set.seed(2026)
+
+n_per_group <- 40L
+n_cells <- 3L * n_per_group
+cell_ids <- paste0("cell_", seq_len(n_cells))
+state <- factor(
+  rep(c("compact", "sparse", "plastic_candidate"), each = n_per_group),
+  levels = c("compact", "sparse", "plastic_candidate")
+)
+
+# A minimal count matrix is sufficient to create the Seurat object.
+counts <- matrix(
+  rpois(30L * n_cells, lambda = 2),
+  nrow = 30L,
+  dimnames = list(paste0("gene_", seq_len(30L)), cell_ids)
+)
+seu <- SeuratObject::CreateSeuratObject(counts = counts)
+seu$state <- state
+
+# Compact, sparse, and candidate-plastic regions of an embedding.
+embedding <- rbind(
+  cbind(rnorm(n_per_group, 0, 0.35), rnorm(n_per_group, 0, 0.35)),
+  cbind(rnorm(n_per_group, 4, 1.10), rnorm(n_per_group, 0, 1.10)),
+  cbind(rnorm(n_per_group, -4, 0.55), rnorm(n_per_group, 0, 0.55))
+)
+rownames(embedding) <- cell_ids
+colnames(embedding) <- c("PC_1", "PC_2")
+
+# Simulate two possible biological/technical covariates.
+seu$S_score <- rnorm(n_cells)
+seu$G2M_score <- 0.45 * seu$S_score + rnorm(n_cells, sd = 0.9)
+
+# Construct an entropy-like response with density, cell-cycle, and group effects.
+k <- 10L
+distance_matrix <- as.matrix(stats::dist(embedding))
+diag(distance_matrix) <- Inf
+simulated_density <- apply(distance_matrix, 1L, function(x) {
+  mean(sort(x)[seq_len(k)])
+})
+
+entropy <-
+  0.7 * as.numeric(scale(simulated_density)) +
+  0.30 * seu$S_score +
+  0.65 * (state == "plastic_candidate") +
+  rnorm(n_cells, sd = 0.25)
+entropy <- entropy - min(entropy) + 0.1
+names(entropy) <- cell_ids
+```
+
+This entropy vector is simulated only to make the vignette reproducible. In a
+real analysis, use the per-cell score produced by the entropy workflow and the
+same embedding and (k) that defined its neighbourhoods.
+
+## Basic usage
+
+The `group` argument is the name of a column in the Seurat object's metadata.
+The function checks that this column exists and that cell ordering agrees among
+the Seurat object, entropy vector, and embedding.
+
+```{r basic-diagnostic}
+density_diagnostic <- entropy_density_diagnostic(
+  seu = seu,
+  entropy = entropy,
+  embedding = embedding,
+  k = k,
+  group = "state"
+)
+```
+
+The global entropy-density association is returned in `$correlation`:
+
+```{r inspect-correlation}
+density_diagnostic$correlation
+```
+
+The density-only regression is stored under the predictor name:
+
+```{r inspect-density-regression}
+density_diagnostic$regressions$mean_knn_dist
+```
+
+`$residuals` is a data frame with one column per independent model. With no
+extra covariates, it contains the density-model residuals:
+
+```{r inspect-density-residuals}
+head(density_diagnostic$residuals)
+```
+
+The group summary reports the number of cells and the mean and median residual
+for each group:
+
+```{r inspect-group-summary}
+density_diagnostic$group_summary
+```
+
+The matching boxplot is a named element of `$plots`:
+
+```{r density-boxplot}
+density_diagnostic$plots$mean_knn_dist
+```
+
+The dashed horizontal line marks zero. Groups centred on that line have entropy
+close to the density prediction. Groups clearly above it have positive excess
+entropy relative to the density-only trend.
+
+## Checking other possible confounds independently
+
+Cell cycle is another common driver of entropy because cycling cells can
+co-express several transcriptional programs. Sequencing depth can be checked in
+the same way.
+
+Each supplied covariate is deliberately tested in its **own independent
+model**. For the example below, the models are:
+
+- `entropy ~ mean_knn_dist`;
+- `entropy ~ S_score`;
+- `entropy ~ G2M_score`.
+
+Density is always present as its own model. Density and cell-cycle covariates
+are not combined, and the covariates are not combined with one another. This
+means each plot answers whether entropy is separable from one predictor at a
+time; it is not a multivariable adjustment.
+
+```{r covariate-diagnostics}
+covariates <- seu[[]][, c("S_score", "G2M_score"), drop = FALSE]
+
+full_diagnostic <- entropy_density_diagnostic(
+  seu = seu,
+  entropy = entropy,
+  embedding = embedding,
+  k = k,
+  group = "state",
+  covariates = covariates
+)
+
+names(full_diagnostic$regressions)
+names(full_diagnostic$plots)
+```
+
+Each regression contains only its own predictor:
+
+```{r inspect-independent-regressions}
+full_diagnostic$regressions$S_score
+full_diagnostic$regressions$G2M_score
+```
+
+Each predictor also receives its own residual boxplot:
+
+```{r covariate-boxplots, fig.height=12}
+full_diagnostic$plots$mean_knn_dist
+full_diagnostic$plots$S_score
+full_diagnostic$plots$G2M_score
+```
+
+The correlation matrix helps reveal when density and the proposed covariates
+are themselves entangled:
+
+```{r inspect-covariate-correlations}
+full_diagnostic$covariate_correlations
+```
+
+A strong correlation here is a warning that apparently separate confounds may
+track the same cells. It does not turn the independent regressions into a
+multivariable causal analysis.
+
+## Options
+
+### Log-transforming density
+
+Neighbour distances are often right-skewed. Set `log_density = TRUE` to fit the
+density-only model using `log(mean_knn_dist)`. The returned raw
+`$mean_knn_dist` values are unchanged.
+
+```{r log-density}
+log_diagnostic <- entropy_density_diagnostic(
+  seu = seu,
+  entropy = entropy,
+  embedding = embedding,
+  k = k,
+  group = "state",
+  log_density = TRUE
+)
+
+names(log_diagnostic$regressions)
+```
+
+### Highlighting a group
+
+Use `cluster_of_interest` to highlight one metadata value in every returned
+boxplot.
+
+```{r highlight-group}
+highlighted <- entropy_density_diagnostic(
+  seu = seu,
+  entropy = entropy,
+  embedding = embedding,
+  k = k,
+  group = "state",
+  cluster_of_interest = "plastic_candidate"
+)
+
+highlighted$plots$mean_knn_dist
+```
+
+### Choosing (k)
+
+Use the same `k` that was used to compute entropy. Changing it changes the
+biological scale of the density measurement, so a different value no longer
+checks the exact neighbourhood underlying the entropy score.
+
+### Saving plots
+
+Plots are returned but not saved by default. Supplying `plot_file` writes
+300-dpi PNG files. When several models are present, the function appends each
+model name and saves one file per model. This example writes only to the R
+session's temporary directory and then removes the files.
+
+```{r save-plots}
+temporary_plot <- tempfile("entropy-diagnostic-", fileext = ".png")
+
+saved_diagnostic <- entropy_density_diagnostic(
+  seu = seu,
+  entropy = entropy,
+  embedding = embedding,
+  k = k,
+  group = "state",
+  covariates = covariates,
+  plot_file = temporary_plot
+)
+
+basename(saved_diagnostic$plot_files)
+unlink(saved_diagnostic$plot_files)
+```
+
+## Interpreting the result: a short decision guide
+
+1. **Start with the global correlation.** A strong entropy-distance Spearman
+   correlation means sparse cells tend to have high entropy, so interpret the
+   score cautiously.
+2. **Inspect the density residuals by group.** A group centred near zero is not
+   distinguishable from a density effect using entropy alone. Report that
+   ambiguity honestly and seek orthogonal evidence.
+3. **Inspect each additional diagnostic separately.** If a group remains above
+   zero in the density, S-score, and G2M-score plots, its entropy is not
+   explained by any one of those predictors alone. Because these are separate
+   models, this is not evidence of joint multivariable independence.
+4. **Treat positive residuals as a stronger lead, not proof.** A group clearly
+   above zero in the density diagnostic is a stronger candidate for genuine
+   plasticity, but confirmation should come from independent biological data,
+   perturbation, lineage evidence, or another appropriate assay.
+
+This diagnostic is a screening and quality-control step. It characterizes a
+potential density confound; it does not correct entropy, determine causality,
+or prove plasticity.

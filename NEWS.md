@@ -208,3 +208,39 @@ Updated function documentation and vignettes
 * Direct h5ad support requires R 4.5.0 or newer, `anndataR` 1.0.0 or newer,
   and `rhdf5`. These remain optional dependencies; the existing Seurat
   interface is unchanged.
+
+
+# Entropy 0.3.6
+
+## New density and covariate diagnostic
+
+* Added `entropy_density_diagnostic()` to assess whether a per-cell
+  entropy/plasticity signal is associated with local neighbourhood sparsity.
+  The function measures the mean distance to each cell's `k` nearest
+  neighbours, excluding the cell itself, and reports the global Spearman
+  entropy-density correlation.
+
+* Density is always tested in its own independent model
+  (`entropy ~ mean_knn_dist`). Each optional numeric covariate is also tested
+  independently (`entropy ~ covariate`); density and additional covariates are
+  never combined in the same regression.
+
+* Added per-cell diagnostic residuals, regression summaries, per-group mean
+  and median residual summaries, one boxplot per independent model, optional
+  group highlighting, log-transformed density, and a density/covariate
+  Spearman correlation matrix.
+
+* Plot saving is opt-in. When requested, plots are written as 300-dpi PNGs,
+  with one file per independent model.
+
+* Residuals are explicitly documented as diagnostics rather than corrected
+  entropy scores. A sparse state may be genuinely plastic, so the diagnostic
+  characterizes possible confounding but does not establish causality or
+  remove biological signal.
+
+## Documentation
+
+* Added a self-contained vignette explaining the density confound, independent
+  covariate checks, result interpretation, limitations, plotting, and saving.
+* Added the new diagnostic to the pkgdown article and function-reference
+  indexes.
