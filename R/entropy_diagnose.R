@@ -444,6 +444,7 @@ entropy_diagnose <- function(
 #' @param ... Additional arguments, currently ignored.
 #'
 #' @return `x`, invisibly.
+#' @keywords internal
 #' @export
 print.entropy_diagnostic <- function(x, ...) {
   if (!inherits(x, "entropy_diagnostic")) {

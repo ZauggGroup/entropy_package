@@ -17,3 +17,4 @@
 \description{
 Print an entropy diagnostic
 }
+\keyword{internal}
