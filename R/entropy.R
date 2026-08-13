@@ -2,7 +2,9 @@
 #'
 #' This function computes gene-level entropy across neighboring cells for a specified assay
 #' in a Seurat object. It optionally saves the entropy matrix to file and/or adds it as a
-#' new assay whose name is the assay name followed by `"_entropy"`.
+#' new assay whose name is the assay name followed by `"_entropy"`. When depth
+#' correction is requested, neighbours still come from the original data. Only
+#' the raw counts supplied to the entropy estimator are thinned.
 #'
 #' @param seu A Seurat object.
 #' @param assay Character. Name of the assay used for entropy calculation.
@@ -36,7 +38,9 @@
 #' @param output_path Optional character string. If provided, saves the full entropy
 #'   matrix to this file using `saveRDS()`.
 #' @param add_assay Logical. If `TRUE` (default), adds the entropy matrix to the
-#'   Seurat object as a new assay whose name ends in `"_entropy"`.
+#'   Seurat object as a new assay whose name ends in `"_entropy"`. With
+#'   `depth_correct = TRUE`, this assay contains only the depth-corrected entropy
+#'   matrix.
 #' @param meta_name Optional character string. If provided, the per-cell mean
 #'   entropy is added to the Seurat object's metadata under this column name.
 #'   Works independently of `add_assay`. If either `add_assay = TRUE` or
@@ -72,9 +76,19 @@
 #'   Defaults to \code{FALSE}. Not supported on Windows.
 #' @param n_cores Integer. Number of cores to use when \code{parallelize = TRUE}.
 #'   Defaults to \code{parallel::detectCores() - 1}.
-#' @return If `add_assay = TRUE`, returns the modified Seurat object with a new assay
-#'   whose name ends in `"_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
-#'   entropy values per cell.
+#' @param depth_correct Logical. If `TRUE`, also compute entropy after thinning
+#'   each cell's raw counts to a common library depth. The default is `FALSE`.
+#' @param depth_quantile Numeric. Quantile of full-library cell totals used to
+#'   choose the target depth when `target_depth` is `NULL`. Must be strictly
+#'   between 0 and 1. The default is 0.05.
+#' @param target_depth Optional positive integer target for count thinning. If
+#'   supplied, it overrides `depth_quantile`.
+#' @return If `add_assay = TRUE`, returns the modified Seurat object with a new
+#'   assay whose name ends in `"_entropy"`. If `depth_correct = TRUE`, the object
+#'   also contains uncorrected and corrected per-cell means, a logical correction
+#'   indicator, and depth-correction provenance. If both `add_assay = FALSE` and
+#'   `depth_correct = FALSE`, a data frame of mean entropy values is returned
+#'   unless `meta_name` is supplied.
 #' @export
 #'
 #' @examples
@@ -101,7 +115,10 @@ run_entropy <- function(
     chunk_method = c("none", "auto"),
     chunk_cells = 2000,
     parallelize = FALSE,
-    n_cores = parallel::detectCores() - 1L
+    n_cores = parallel::detectCores() - 1L,
+    depth_correct = FALSE,
+    depth_quantile = 0.05,
+    target_depth = NULL
 ){
 
 
@@ -109,11 +126,127 @@ run_entropy <- function(
   mode <- match.arg(mode)
   chunk_method <- match.arg(chunk_method)
 
+  if (length(depth_correct) != 1L || !is.logical(depth_correct) ||
+      is.na(depth_correct)) {
+    stop("`depth_correct` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (length(depth_quantile) != 1L || !is.numeric(depth_quantile) ||
+      !is.finite(depth_quantile) || depth_quantile <= 0 ||
+      depth_quantile >= 1) {
+    stop("`depth_quantile` must be one number strictly between 0 and 1.",
+         call. = FALSE)
+  }
+  if (!is.null(target_depth) &&
+      (length(target_depth) != 1L || !is.numeric(target_depth) ||
+       !is.finite(target_depth) || target_depth != floor(target_depth) ||
+       target_depth < 1)) {
+    stop("`target_depth` must be one positive integer or `NULL`.",
+         call. = FALSE)
+  }
+
+  if (depth_correct && add_assay) {
+    message(paste(
+      "NOTE: depth_correct = TRUE and add_assay = TRUE.",
+      "The stored entropy assay will contain the DEPTH CORRECTED matrix only.",
+      "The uncorrected per-cell mean is still written to metadata.",
+      sep = "\n"
+    ))
+  }
+
   if (!assay %in% Seurat::Assays(seu)) {
     stop(sprintf("Assay '%s' not found in Seurat object.", assay))
   }
   Seurat::DefaultAssay(seu) <- assay
   futile.logger::flog.info("Assay '%s' found and set as default assay.", assay)
+
+  depth_target <- NULL
+  n_cells_below_target <- 0L
+  n_cells_corrected <- 0L
+  depth_corrected_cells <- NULL
+  full_depth_counts <- NULL
+  if (depth_correct) {
+    full_depth_counts <- suppressWarnings(tryCatch(
+      SeuratObject::GetAssayData(seu, assay = assay, layer = "counts"),
+      error = function(error) NULL
+    ))
+    if (is.null(full_depth_counts) || length(dim(full_depth_counts)) != 2L ||
+        nrow(full_depth_counts) == 0L || ncol(full_depth_counts) == 0L) {
+      stop(sprintf(
+        paste0(
+          "Depth correction requires raw counts in the counts layer of assay ",
+          "'%s'."
+        ),
+        assay
+      ), call. = FALSE)
+    }
+    count_values <- if (inherits(full_depth_counts, "sparseMatrix")) {
+      full_depth_counts@x
+    } else {
+      as.vector(full_depth_counts)
+    }
+    integer_like <- all(
+      is.finite(count_values) & count_values >= 0 &
+        abs(count_values - round(count_values)) <= sqrt(.Machine$double.eps)
+    )
+    if (!integer_like) {
+      stop(sprintf(
+        paste0(
+          "Depth correction requires raw counts in the counts layer of assay ",
+          "'%s'; the stored values are not integer-like."
+        ),
+        assay
+      ), call. = FALSE)
+    }
+
+    depth_totals <- Matrix::colSums(full_depth_counts)
+    depth_target <- if (is.null(target_depth)) {
+      floor(stats::quantile(
+        depth_totals, probs = depth_quantile, names = FALSE, type = 7
+      ))
+    } else {
+      as.integer(target_depth)
+    }
+    if (!is.finite(depth_target) || depth_target < 1) {
+      stop("The depth correction target is below 1 count.", call. = FALSE)
+    }
+    n_cells_below_target <- sum(depth_totals < depth_target)
+    n_cells_corrected <- sum(depth_totals > depth_target)
+    depth_corrected_cells <- depth_totals > depth_target
+    names(depth_corrected_cells) <- colnames(full_depth_counts)
+
+    below_fraction <- n_cells_below_target / length(depth_totals)
+    if (below_fraction > 0.1) {
+      warning(sprintf(
+        paste0(
+          "%d cells (%.1f%%) are below the target depth and cannot be ",
+          "downsampled; they will keep their original counts."
+        ),
+        n_cells_below_target, 100 * below_fraction
+      ), call. = FALSE)
+    }
+    if (depth_target < 200) {
+      warning(sprintf(
+        paste0(
+          "The target depth is %d counts. Entropy estimates at depths below ",
+          "200 counts may be unreliable."
+        ),
+        depth_target
+      ), call. = FALSE)
+    }
+    if (mode == "binary") {
+      warning(
+        paste0(
+          "Depth correction has not been validated for binary mode. ",
+          "The default depth_quantile was chosen using count based entropy."
+        ),
+        call. = FALSE
+      )
+    }
+    message(sprintf(
+      "Depth correction target: %d counts; %d of %d cells will be corrected.",
+      depth_target, n_cells_corrected, length(depth_totals)
+    ))
+  }
 
   if (!neighbor_assay %in% Seurat::Assays(seu)) {
     stop(sprintf("neighbor_assay '%s' not found in Seurat object.", neighbor_assay))
@@ -552,6 +685,13 @@ run_entropy <- function(
   ###################### NN finish
 
 
+  if (depth_correct) {
+    depth_corrected_full <- .entropy_downsample_matrix(
+      full_depth_counts, depth_target
+    )
+  }
+
+
   mat <- Seurat::GetAssayData(seu, assay = assay, layer = "counts")
 
   if (!is.null(features)) {
@@ -561,6 +701,18 @@ run_entropy <- function(
   if (mode == "binary") {
     futile.logger::flog.info("Binarizing matrix (counts > 0) for binary entropy.")
     mat_bin <- Matrix::Matrix(mat > 0, sparse = TRUE)
+  }
+
+  if (depth_correct) {
+    depth_corrected_mat <- depth_corrected_full
+    if (!is.null(features)) {
+      depth_corrected_mat <- depth_corrected_mat[features, , drop = FALSE]
+    }
+    if (mode == "binary") {
+      depth_corrected_mat_bin <- Matrix::Matrix(
+        depth_corrected_mat > 0, sparse = TRUE
+      )
+    }
   }
 
   # Get all cell names
@@ -669,29 +821,127 @@ run_entropy <- function(
     }
   }
 
-
-
+  means <- colMeans(entropy_matrix)
   if (!is.null(output_path)) {
     saveRDS(entropy_matrix, output_path)
     futile.logger::flog.info("Entropy matrix saved to: %s", output_path)
   }
 
+  if (depth_correct) {
+    # The uncorrected dense matrix is not used after its means and optional
+    # output are written. Release it before allocating the corrected matrix.
+    rm(entropy_matrix)
+    gc()
 
-  means <- colMeans(entropy_matrix)
+    # TODO: Roughly 90 lines below duplicate the uncorrected chunking and
+    # parallel loop. Apply every future entropy-loop change in both places.
+    depth_corrected_entropy_matrix <- matrix(
+      0,
+      nrow = nrow(depth_corrected_mat),
+      ncol = n_cells,
+      dimnames = list(rownames(depth_corrected_mat), cell_names)
+    )
+
+    if (chunk_method == "none") {
+      for (i in seq_along(cell_names)) {
+        cell_name <- cell_names[i]
+        nn_idx <- get_neighbors(cell_name, seu, neighbors, neighbors_method)
+        if (mode == "binary") {
+          depth_corrected_entropy_matrix[, cell_name] <-
+            calculate_entropy_for_cell_binary_fast(
+              cell_name = cell_name,
+              mat_bin = depth_corrected_mat_bin,
+              neighbors_idx = nn_idx
+            )
+        } else {
+          depth_corrected_entropy_matrix[, cell_name] <-
+            calculate_entropy_for_cell(
+              cell_name = cell_name,
+              mat = depth_corrected_mat,
+              neighbors_idx = nn_idx
+            )
+        }
+      }
+    } else {
+      run_depth_corrected_chunk <- function(chunk_cell_names) {
+        all_nn_idx <- unique(unlist(lapply(chunk_cell_names, function(cell) {
+          get_neighbors(cell, seu, neighbors, neighbors_method)
+        })))
+        if (mode == "binary") {
+          mat_chunk <- depth_corrected_mat_bin[, all_nn_idx, drop = FALSE]
+        } else {
+          mat_chunk <- depth_corrected_mat[, all_nn_idx, drop = FALSE]
+        }
+        idx_remap <- stats::setNames(seq_along(all_nn_idx), all_nn_idx)
+        chunk_matrix <- matrix(
+          0,
+          nrow = nrow(depth_corrected_mat),
+          ncol = length(chunk_cell_names),
+          dimnames = list(rownames(depth_corrected_mat), chunk_cell_names)
+        )
+        for (cell_name in chunk_cell_names) {
+          nn_idx_full <- get_neighbors(
+            cell_name, seu, neighbors, neighbors_method
+          )
+          nn_idx_chunk <- as.integer(idx_remap[as.character(nn_idx_full)])
+          if (mode == "binary") {
+            chunk_matrix[, cell_name] <-
+              calculate_entropy_for_cell_binary_fast(
+                cell_name = cell_name,
+                mat_bin = mat_chunk,
+                neighbors_idx = nn_idx_chunk
+              )
+          } else {
+            chunk_matrix[, cell_name] <- calculate_entropy_for_cell(
+              cell_name = cell_name,
+              mat = mat_chunk,
+              neighbors_idx = nn_idx_chunk
+            )
+          }
+        }
+        chunk_matrix
+      }
+      if (parallelize) {
+        depth_corrected_chunk_results <- parallel::mclapply(
+          chunks, run_depth_corrected_chunk, mc.cores = n_cores
+        )
+      } else {
+        depth_corrected_chunk_results <- lapply(
+          chunks, run_depth_corrected_chunk
+        )
+      }
+      for (i in seq_along(depth_corrected_chunk_results)) {
+        chunk_cell_names <- colnames(depth_corrected_chunk_results[[i]])
+        depth_corrected_entropy_matrix[, chunk_cell_names] <-
+          depth_corrected_chunk_results[[i]]
+      }
+    }
+    depth_corrected_means <- colMeans(depth_corrected_entropy_matrix)
+  }
 
   if (add_assay) {
-    entropy_assay <- if (inherits(seu[[assay]], "Assay5")) {
-      SeuratObject::CreateAssay5Object(counts = entropy_matrix)
+    assay_entropy_matrix <- if (depth_correct) {
+      depth_corrected_entropy_matrix
     } else {
-      SeuratObject::CreateAssayObject(counts = entropy_matrix)
+      entropy_matrix
+    }
+    entropy_assay <- if (inherits(seu[[assay]], "Assay5")) {
+      SeuratObject::CreateAssay5Object(counts = assay_entropy_matrix)
+    } else {
+      SeuratObject::CreateAssayObject(counts = assay_entropy_matrix)
     }
     assay_name <- paste0(assay, "_entropy")
     seu[[assay_name]] <- entropy_assay
     futile.logger::flog.info("Entropy matrix added to Seurat object as '%s'.", assay_name)
   }
 
-  if (!is.null(meta_name) || add_assay) {
-    col <- if (!is.null(meta_name)) meta_name else paste0("entropy_mean_", assay)
+  if (!is.null(meta_name) || add_assay || depth_correct) {
+    requested_col <- if (!is.null(meta_name)) {
+      meta_name
+    } else {
+      paste0("entropy_mean_", assay)
+    }
+    col <- requested_col
 
     if (col %in% Seurat::Assays(seu)) {
       new_col <- paste0(col, "_meta")
@@ -706,18 +956,48 @@ run_entropy <- function(
     futile.logger::flog.info("Mean entropy added to metadata column '%s'.", col)
   }
 
+  if (depth_correct) {
+    corrected_col <- paste0(col, "_depth_corrected")
+    if (corrected_col %in% Seurat::Assays(seu)) {
+      new_corrected_col <- paste0(corrected_col, "_meta")
+      futile.logger::flog.warn(
+        "Corrected metadata name '%s' collides with an assay name in the object. Using '%s' instead.",
+        corrected_col, new_corrected_col
+      )
+      corrected_col <- new_corrected_col
+    }
+    seu[[corrected_col]] <- depth_corrected_means
+    seu[[paste0("depth_corrected_", assay)]] <-
+      depth_corrected_cells[colnames(seu)]
+    futile.logger::flog.info(
+      "Depth-corrected mean entropy added to metadata column '%s'.",
+      corrected_col
+    )
+  }
+
+  if (add_assay || !is.null(meta_name) || depth_correct) {
+    seu@misc$entropy_provenance <- list(
+      k = k,
+      assay = assay,
+      mode = mode,
+      reduction = reduction,
+      dims = dims,
+      restrict_by = restrict_by,
+      depth_correct = depth_correct,
+      depth_quantile = depth_quantile,
+      target_depth = depth_target,
+      n_cells_below_target = n_cells_below_target,
+      n_cells_corrected = n_cells_corrected
+    )
+  }
+
   # return rule: object if we modified it (assay or meta), else the data frame
-  if (add_assay || !is.null(meta_name)) {
+  if (add_assay || !is.null(meta_name) || depth_correct) {
     return(seu)
   } else {
     return(as.data.frame(means))
   }
 
 }
-
-
-
-
-
 
 

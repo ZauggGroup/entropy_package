@@ -23,9 +23,6 @@ navbar:
         - text: Neighborhood
           desc: Neighborhood definition and usage modes
           href: articles/neighborhood.html
-        - text: Density Diagnostic
-          desc: Check whether entropy is associated with local density or other covariates
-          href: articles/entropy_density_diagnostic.html
         - text: Python and AnnData
           desc: Run Entropy directly on an h5ad file from a Python workflow
           href: articles/python_anndata_workflow.html
@@ -42,7 +39,6 @@ articles:
       - getting_started
       - workflow
       - neighborhood
-      - entropy_density_diagnostic
       - python_anndata_workflow
 
 reference:
@@ -51,7 +47,10 @@ reference:
       - run_entropy
       - run_entropy_h5ad
       - add_entropy_score
-      - entropy_density_diagnostic
+      - entropy_diagnose
+      - entropy_diagnose_report
+      - entropy_recompute_check
+      - entropy_recompute_report
   - title: Entropy estimators
     contents:
       - calculate_entropy_for_cell

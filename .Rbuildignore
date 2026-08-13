@@ -4,3 +4,6 @@
 ^docs$
 ^pkgdown$
 ^\.gitlab-ci\.yml$
+^old_ch_codes\.R$
+^omnipathr-log$
+^tmp$

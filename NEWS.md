@@ -1,3 +1,71 @@
+# Entropy 0.6.0
+
+* `run_entropy()` gains optional count-depth correction. Sequencing depth can
+  inflate entropy because deeper libraries sample the expression distribution
+  more completely. With `depth_correct = TRUE`, the function also computes
+  entropy after thinning raw counts to a common depth. The default remains
+  `FALSE`.
+
+* Every `run_entropy()` call that returns a Seurat object now records its
+  parameters in `seu@misc$entropy_provenance`. This provenance record is the
+  only visible change when `depth_correct = FALSE`.
+
+* Removed `entropy_density_diagnostic()` as a breaking change. Use
+  `entropy_diagnose()` for computation and `entropy_diagnose_report()` for PDF
+  reporting.
+
+# Entropy 0.5.0
+
+## Interventional entropy checks
+
+* Added `entropy_recompute_check()` and `entropy_recompute_report()`.
+
+* `entropy_diagnose()` remains an observational screen. It compares cells at
+  matched covariate values, but it cannot distinguish a technical confounder
+  from a biological mediator.
+
+* The new recompute check is interventional. It can equalise count depth,
+  equalise the number of cells sampled per cluster, or remove a gene programme,
+  then call `run_entropy()` again. Its headline result asks whether the cluster
+  ranking survives that physical change.
+
+* Random interventions report repeat-to-repeat ranges and label inconsistent
+  cluster movement as unstable. Gene removal reports ranking as the comparable
+  result because removing features shifts the absolute entropy scale.
+
+# Entropy 0.4.0
+
+## New Class A entropy diagnostic
+
+* Replaced the residual-based density diagnostic with `entropy_diagnose()` and
+  `entropy_diagnose_report()`. Computation and PDF rendering are now separate.
+
+* The old diagnostic had no overlap check, showed no raw entropy reference,
+  used zero-sum regression residuals whose baseline depended on dataset
+  composition, and exposed a log-density option that could change cluster
+  conclusions.
+
+* The new diagnostic compares each cluster with other cells in matched
+  covariate bins. It reports the matched effect size, comparison support,
+  within-cluster association, global association, raw cluster values, and an
+  optional joint model.
+
+* Matched bins must also pass a within-bin median balance check. This prevents
+  wide quantile bins in a covariate tail from being treated as fair matches.
+
+* Detailed reports show dropped bins in a separate balance strip instead of
+  placing them on the zero-difference line. Loess fitting now uses a
+  reproducible random subsample without changing the caller's random stream.
+
+* Clusters without a fair comparison group now receive `cannot tell` instead
+  of a confident result near zero.
+
+* Added one-page summary PDFs and detailed five-part covariate reports using
+  the base PDF device, ggplot2, and patchwork.
+
+* `entropy_density_diagnostic()` remains as a deprecated wrapper. It now
+  returns an `entropy_diagnostic` object rather than the old list shape.
+
 # Entropy 0.1.0
 
 🚀 Initial release of the Entropy package!

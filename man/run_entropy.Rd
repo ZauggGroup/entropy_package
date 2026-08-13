@@ -23,7 +23,10 @@ run_entropy(
   chunk_method = c("none", "auto"),
   chunk_cells = 2000,
   parallelize = FALSE,
-  n_cores = parallel::detectCores() - 1L
+  n_cores = parallel::detectCores() - 1L,
+  depth_correct = FALSE,
+  depth_quantile = 0.05,
+  target_depth = NULL
 )
 }
 \arguments{
@@ -67,7 +70,9 @@ mode.}
 matrix to this file using `saveRDS()`.}
 
 \item{add_assay}{Logical. If `TRUE` (default), adds the entropy matrix to the
-Seurat object as a new assay whose name ends in `"_entropy"`.}
+Seurat object as a new assay whose name ends in `"_entropy"`. With
+`depth_correct = TRUE`, this assay contains only the depth-corrected entropy
+matrix.}
 
 \item{meta_name}{Optional character string. If provided, the per-cell mean
 entropy is added to the Seurat object's metadata under this column name.
@@ -113,16 +118,31 @@ Defaults to \code{FALSE}. Not supported on Windows.}
 
 \item{n_cores}{Integer. Number of cores to use when \code{parallelize = TRUE}.
 Defaults to \code{parallel::detectCores() - 1}.}
+
+\item{depth_correct}{Logical. If `TRUE`, also compute entropy after thinning
+each cell's raw counts to a common library depth. The default is `FALSE`.}
+
+\item{depth_quantile}{Numeric. Quantile of full-library cell totals used to
+choose the target depth when `target_depth` is `NULL`. Must be strictly
+between 0 and 1. The default is 0.05.}
+
+\item{target_depth}{Optional positive integer target for count thinning. If
+supplied, it overrides `depth_quantile`.}
 }
 \value{
-If `add_assay = TRUE`, returns the modified Seurat object with a new assay
-  whose name ends in `"_entropy"`. If `add_assay = FALSE`, returns a data frame of mean
-  entropy values per cell.
+If `add_assay = TRUE`, returns the modified Seurat object with a new
+  assay whose name ends in `"_entropy"`. If `depth_correct = TRUE`, the object
+  also contains uncorrected and corrected per-cell means, a logical correction
+  indicator, and depth-correction provenance. If both `add_assay = FALSE` and
+  `depth_correct = FALSE`, a data frame of mean entropy values is returned
+  unless `meta_name` is supplied.
 }
 \description{
 This function computes gene-level entropy across neighboring cells for a specified assay
 in a Seurat object. It optionally saves the entropy matrix to file and/or adds it as a
-new assay whose name is the assay name followed by `"_entropy"`.
+new assay whose name is the assay name followed by `"_entropy"`. When depth
+correction is requested, neighbours still come from the original data. Only
+the raw counts supplied to the entropy estimator are thinned.
 }
 \examples{
 \dontrun{

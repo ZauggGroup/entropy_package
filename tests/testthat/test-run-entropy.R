@@ -1,3 +1,291 @@
+test_that("depth correction disabled preserves released run_entropy behaviour", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  # Generated from git show HEAD:R/entropy.R before depth correction was added.
+  # Regenerate it with that version and the parameters stored in the RDS only
+  # when the entropy estimator is deliberately changed.
+  reference <- readRDS(testthat::test_path(
+    "fixtures", "run_entropy_reference.rds"
+  ))
+  cells <- colnames(pbmc_small)
+  neighbors <- lapply(seq_along(cells), function(index) {
+    setdiff(cells, cells[index])[seq_len(12L)]
+  })
+  names(neighbors) <- cells
+
+  comparison <- run_entropy(
+    pbmc_small,
+    assay = reference$parameters$assay,
+    mode = reference$parameters$mode,
+    k = reference$parameters$k,
+    neighbors = neighbors,
+    neighbors_method = reference$parameters$neighbors_method,
+    add_assay = reference$parameters$add_assay,
+    meta_name = reference$parameters$meta_name,
+    depth_correct = FALSE
+  )
+
+  expect_identical(comparison$released_entropy, reference$means)
+  expect_identical(
+    colnames(comparison@meta.data), reference$metadata_columns
+  )
+  expect_false(any(grepl("depth_corrected", colnames(comparison@meta.data))))
+})
+
+
+make_depth_correction_fixture <- function() {
+  n_cells <- 24L
+  totals <- seq(240L, 470L, length.out = n_cells)
+  totals <- as.integer(round(totals))
+  counts <- vapply(totals, function(total) {
+    c(total - 20L, 8L, 5L, 3L, 2L, 2L)
+  }, integer(6L))
+  dimnames(counts) <- list(
+    paste0("gene", seq_len(nrow(counts))),
+    paste0("cell", seq_len(ncol(counts)))
+  )
+  seu <- Seurat::CreateSeuratObject(counts = Matrix::Matrix(counts, sparse = TRUE))
+  cells <- colnames(seu)
+  neighbors <- lapply(seq_along(cells), function(index) {
+    setdiff(cells, cells[index])[seq_len(12L)]
+  })
+  names(neighbors) <- cells
+  list(seu = seu, counts = counts, totals = totals, neighbors = neighbors)
+}
+
+
+run_depth_correction_fixture <- function(fixture, ...) {
+  arguments <- list(
+    seu = fixture$seu,
+    assay = "RNA",
+    neighbors = fixture$neighbors,
+    neighbors_method = "custom",
+    k = 11,
+    mode = "counts",
+    add_assay = FALSE,
+    depth_correct = TRUE,
+    target_depth = 240L
+  )
+  arguments[names(list(...))] <- list(...)
+  do.call(run_entropy, arguments)
+}
+
+
+test_that("depth correction adds expected metadata and keeps original means", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_depth_correction_fixture()
+  original <- run_entropy(
+    fixture$seu, assay = "RNA", neighbors = fixture$neighbors,
+    neighbors_method = "custom", k = 11, mode = "counts",
+    add_assay = FALSE, meta_name = "mean_entropy_RNA"
+  )
+  set.seed(10)
+  corrected <- run_depth_correction_fixture(fixture)
+
+  added <- setdiff(colnames(corrected@meta.data), colnames(fixture$seu@meta.data))
+  expect_setequal(added, c(
+    "entropy_mean_RNA", "entropy_mean_RNA_depth_corrected",
+    "depth_corrected_RNA"
+  ))
+  expect_identical(corrected$entropy_mean_RNA, original$mean_entropy_RNA)
+  expect_type(corrected$depth_corrected_RNA, "logical")
+})
+
+
+test_that("downsampling caps deep cells and leaves shallow cells unchanged", {
+  fixture <- make_depth_correction_fixture()
+  target <- 300L
+  set.seed(20)
+  downsampled <- Entropy:::.entropy_downsample_matrix(
+    Matrix::Matrix(fixture$counts, sparse = TRUE), target
+  )
+  after <- Matrix::colSums(downsampled)
+  below <- fixture$totals <= target
+
+  expect_true(all(after[!below] <= target))
+  expect_equal(
+    as.matrix(downsampled[, below, drop = FALSE]),
+    fixture$counts[, below, drop = FALSE]
+  )
+})
+
+
+test_that("depth correction records target counts and target override", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_depth_correction_fixture()
+  set.seed(30)
+  result <- suppressWarnings(run_depth_correction_fixture(
+    fixture, target_depth = 300L, depth_quantile = 0.9
+  ))
+
+  expect_identical(result@misc$entropy_provenance$target_depth, 300L)
+  expect_identical(
+    result@misc$entropy_provenance$n_cells_below_target,
+    sum(fixture$totals < 300L)
+  )
+  expect_identical(
+    result@misc$entropy_provenance$n_cells_corrected,
+    sum(fixture$totals > 300L)
+  )
+})
+
+
+test_that("depth correction validates counts and target arguments", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_depth_correction_fixture()
+
+  for (bad_quantile in list(0, 1, c(0.1, 0.2))) {
+    expect_error(
+      run_depth_correction_fixture(
+        fixture, depth_quantile = bad_quantile, target_depth = NULL
+      ),
+      "strictly between 0 and 1"
+    )
+  }
+  expect_error(
+    run_depth_correction_fixture(fixture, target_depth = -1),
+    "positive integer"
+  )
+
+  no_counts <- fixture$seu
+  suppressWarnings(
+    no_counts[["data_only"]] <- SeuratObject::CreateAssay5Object(
+      data = log1p(Matrix::Matrix(fixture$counts, sparse = TRUE))
+    )
+  )
+  expect_error(
+    suppressWarnings(run_entropy(
+      no_counts, assay = "data_only", neighbors = fixture$neighbors,
+      neighbors_method = "custom", k = 11, add_assay = FALSE,
+      depth_correct = TRUE, target_depth = 240L
+    )),
+    "requires raw counts"
+  )
+
+  non_integer <- fixture$seu
+  non_integer_counts <- SeuratObject::GetAssayData(
+    non_integer, assay = "RNA", layer = "counts"
+  )
+  non_integer_counts[1, 1] <- non_integer_counts[1, 1] + 0.5
+  non_integer[["non_integer"]] <- SeuratObject::CreateAssay5Object(
+    counts = non_integer_counts
+  )
+  expect_error(
+    run_entropy(
+      non_integer, assay = "non_integer", neighbors = fixture$neighbors,
+      neighbors_method = "custom", k = 11, add_assay = FALSE,
+      depth_correct = TRUE, target_depth = 240L
+    ),
+    "not integer-like"
+  )
+})
+
+
+test_that("depth correction warns for shallow cells and binary mode", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_depth_correction_fixture()
+
+  expect_warning(
+    run_depth_correction_fixture(fixture, target_depth = 300L),
+    "below the target depth"
+  )
+  expect_warning(
+    run_depth_correction_fixture(fixture, target_depth = 199L),
+    "may be unreliable"
+  )
+  set.seed(40)
+  binary <- NULL
+  expect_warning(
+    binary <- run_depth_correction_fixture(
+      fixture, mode = "binary", target_depth = 240L
+    ),
+    "not been validated for binary mode"
+  )
+  expect_s4_class(binary, "Seurat")
+})
+
+
+test_that("depth corrected assay stores corrected entropy only", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_depth_correction_fixture()
+  set.seed(50)
+  result <- NULL
+  expect_message(
+    result <- suppressWarnings(run_depth_correction_fixture(
+      fixture, add_assay = TRUE, target_depth = 240L
+    )),
+    "DEPTH CORRECTED matrix only"
+  )
+  stored <- SeuratObject::GetAssayData(
+    result, assay = "RNA_entropy", layer = "counts"
+  )
+
+  expect_identical(
+    unname(Matrix::colMeans(stored)),
+    unname(result$entropy_mean_RNA_depth_corrected)
+  )
+  expect_false(identical(
+    unname(Matrix::colMeans(stored)), unname(result$entropy_mean_RNA)
+  ))
+})
+
+
+test_that("metadata collision keeps corrected column names paired", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_depth_correction_fixture()
+  set.seed(55)
+  result <- suppressWarnings(run_depth_correction_fixture(
+    fixture, meta_name = "RNA"
+  ))
+
+  expect_true(all(c(
+    "RNA_meta", "RNA_meta_depth_corrected"
+  ) %in% colnames(result@meta.data)))
+  expect_false("RNA_depth_corrected" %in% colnames(result@meta.data))
+})
+
+
+test_that("run_entropy writes provenance on corrected and uncorrected paths", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_depth_correction_fixture()
+  uncorrected <- run_entropy(
+    fixture$seu, assay = "RNA", neighbors = fixture$neighbors,
+    neighbors_method = "custom", k = 11, mode = "counts",
+    add_assay = FALSE, meta_name = "entropy"
+  )
+  set.seed(60)
+  corrected <- run_depth_correction_fixture(fixture)
+  expected_names <- c(
+    "k", "assay", "mode", "reduction", "dims", "restrict_by",
+    "depth_correct", "depth_quantile", "target_depth",
+    "n_cells_below_target", "n_cells_corrected"
+  )
+
+  expect_identical(names(uncorrected@misc$entropy_provenance), expected_names)
+  expect_false(uncorrected@misc$entropy_provenance$depth_correct)
+  expect_identical(names(corrected@misc$entropy_provenance), expected_names)
+  expect_true(corrected@misc$entropy_provenance$depth_correct)
+})
+
+
+test_that("depth target uses the full library before feature subsetting", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_depth_correction_fixture()
+  expected <- floor(stats::quantile(
+    fixture$totals, probs = 0.5, names = FALSE, type = 7
+  ))
+  set.seed(70)
+  result <- suppressWarnings(run_depth_correction_fixture(
+    fixture, target_depth = NULL, depth_quantile = 0.5,
+    features = rownames(fixture$seu)[1:2]
+  ))
+
+  expect_identical(result@misc$entropy_provenance$target_depth, expected)
+})
+
+
 test_that("run_entropy runs and returns a sane entropy assay (counts)", {
   skip_if_not_installed("Seurat")
   library(Seurat)
