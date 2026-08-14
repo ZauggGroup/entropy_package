@@ -23,6 +23,9 @@ navbar:
         - text: Neighborhood
           desc: Neighborhood definition and usage modes
           href: articles/neighborhood.html
+        - text: Diagnosing confounds
+          desc: Detect and correct technical drivers of entropy scores
+          href: articles/diagnosing_confounds.html
         - text: Python and AnnData
           desc: Run Entropy directly on an h5ad file from a Python workflow
           href: articles/python_anndata_workflow.html
@@ -39,6 +42,7 @@ articles:
       - getting_started
       - workflow
       - neighborhood
+      - diagnosing_confounds
       - python_anndata_workflow
 
 reference:
