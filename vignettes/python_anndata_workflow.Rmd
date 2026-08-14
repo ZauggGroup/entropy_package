@@ -527,6 +527,180 @@ print(adata.obs["Entropy_mean"].describe())
 `rpy2` must be configured to use an R installation that contains `Entropy`,
 `anndataR`, and `rhdf5`.
 
+## Diagnose depth confounding
+
+Sequencing depth inflates entropy for a technical reason. Entropy is concave,
+so subsampling biases its estimate downward, and a more deeply sequenced cell
+receives a higher score with no change in biology. Before interpreting an
+entropy ranking, check how much of it is explained by depth and by the number
+of detected genes. The vignette
+[Diagnosing confounds in entropy scores](diagnosing_confounds.html) explains
+the reasoning. This section covers only the AnnData mechanics.
+
+`entropy_diagnose()` does not need a Seurat object. It never reads the
+expression matrix, only the entropy vector, the embedding, a cluster label per
+cell, and the covariates you supply. Use `return_inputs = TRUE` so the file is
+read once and everything the diagnostic needs comes back in one list.
+
+```{r, eval=FALSE}
+library(Entropy)
+
+res <- run_entropy_h5ad(
+  "adata_for_entropy.h5ad",
+  layer         = "counts",
+  k             = 15,
+  mode          = "counts",
+  return_inputs = TRUE
+)
+
+names(res)
+# "entropy" "entropy_depth_corrected" "embedding" "obs" "results"
+```
+
+The covariates come from `res$obs`. Scanpy writes `total_counts` and
+`n_genes_by_counts` when `sc.pp.calculate_qc_metrics()` has been run. Use
+whatever your object calls them.
+
+```{r, eval=FALSE}
+covariate_names <- intersect(
+  c("total_counts", "n_genes_by_counts", "pct_counts_mt"),
+  colnames(res$obs)
+)
+covariates <- res$obs[, covariate_names, drop = FALSE]
+
+diagnostic <- entropy_diagnose(
+  seu        = NULL,
+  entropy    = res$entropy,
+  embedding  = res$embedding,
+  k          = 15,
+  group      = res$obs$celltype,
+  covariates = covariates,
+  covariate_type = setNames(
+    rep("technical", length(covariate_names)), covariate_names
+  ),
+  covariate_intervention = setNames(
+    rep("downsample_counts", length(covariate_names)), covariate_names
+  ),
+  n_bins            = 20,
+  max_bin_imbalance = 0.1
+)
+
+diagnostic
+```
+
+Two arguments differ from the Seurat call. `seu` is `NULL`, and `group` is a
+per-cell vector rather than the name of a metadata column. Everything else is
+identical.
+
+Read the global association table first. The covariate with the largest R
+squared is the one to worry about.
+
+```{r, eval=FALSE}
+diagnostic$covariate_info[, c("covariate", "r_squared", "spearman_rho")]
+```
+
+Then read `retained` per cluster, not only the flag. The flag records a
+threshold crossing. `retained` records how much of a cluster's entropy
+elevation actually survives matching on the covariate.
+
+```{r, eval=FALSE}
+diagnostic$cluster_table[
+  diagnostic$cluster_table$covariate == "n_genes_by_counts",
+  c("cluster", "entropy_delta_std", "matched_diff_std", "retained",
+    "support", "flag")
+]
+```
+
+The full PDF report is written the same way as in the Seurat workflow:
+
+```{r, eval=FALSE}
+entropy_diagnose_report(
+  diagnostic, outdir = "entropy_diagnostics", write_tables = TRUE
+)
+```
+
+## Correct the depth confound
+
+If depth or detected features dominate the diagnostic, recompute with
+`depth_correct = TRUE`. Every cell above the target is thinned to a common
+count depth before entropy is estimated. Neighbourhoods are unchanged, only the
+counts fed to the estimator are.
+
+```{r, eval=FALSE}
+corrected <- run_entropy_h5ad(
+  "adata_for_entropy.h5ad",
+  layer          = "counts",
+  k              = 15,
+  mode           = "counts",
+  depth_correct  = TRUE,
+  depth_quantile = 0.05,
+  return_inputs  = TRUE
+)
+
+head(corrected$results)
+#                  Entropy_mean Entropy_mean_depth_corrected depth_corrected
+```
+
+`depth_quantile` is effectively the fraction of cells left uncorrected, because
+cells already below the target keep their counts. The `depth_corrected` column
+marks which cells were actually thinned.
+
+Rerun the diagnostic on the corrected score to confirm the association has
+fallen:
+
+```{r, eval=FALSE}
+corrected_diagnostic <- entropy_diagnose(
+  seu        = NULL,
+  entropy    = corrected$entropy_depth_corrected,
+  embedding  = corrected$embedding,
+  k          = 15,
+  group      = corrected$obs$celltype,
+  covariates = corrected$obs[, covariate_names, drop = FALSE],
+  n_bins     = 20,
+  max_bin_imbalance = 0.1
+)
+
+merge(
+  diagnostic$covariate_info[, c("covariate", "r_squared")],
+  corrected_diagnostic$covariate_info[, c("covariate", "r_squared")],
+  by = "covariate", suffixes = c("_before", "_after")
+)
+```
+
+Write both scores back to `adata.obs` so the corrected and uncorrected versions
+stay side by side:
+
+```{r, eval=FALSE}
+write.csv(corrected$results, "Entropy_with_depth_correction.csv")
+```
+
+```python
+import pandas as pd
+import scanpy as sc
+
+adata = sc.read_h5ad("adata_for_entropy.h5ad")
+scores = pd.read_csv("Entropy_with_depth_correction.csv", index_col=0)
+
+assert len(adata.obs_names.difference(scores.index)) == 0
+
+adata.obs["Entropy_mean"] = scores["Entropy_mean"].reindex(adata.obs_names)
+adata.obs["Entropy_mean_depth_corrected"] = (
+    scores["Entropy_mean_depth_corrected"].reindex(adata.obs_names)
+)
+adata.obs["depth_corrected"] = scores["depth_corrected"].reindex(adata.obs_names)
+
+sc.pl.umap(
+    adata,
+    color=["Entropy_mean", "Entropy_mean_depth_corrected"],
+    color_map="viridis",
+    frameon=False,
+    wspace=0.35,
+)
+```
+
+Report the corrected score as your primary result when the diagnostic showed a
+strong depth association, and keep the uncorrected one for comparison.
+
 ## Troubleshooting
 
 ### Non-integer values in counts mode
@@ -617,3 +791,8 @@ if "X_umap" not in adata.obsm:
 sc.pl.umap(adata, color="Entropy_mean", color_map="viridis")
 adata.write_h5ad("adata_with_entropy.h5ad")
 ```
+
+Before interpreting the result, run the diagnostic described in
+[Diagnose depth confounding](#diagnose-depth-confounding). If sequencing depth
+or the number of detected genes explains a large share of the entropy, rerun
+with `depth_correct = TRUE` and report the corrected score.

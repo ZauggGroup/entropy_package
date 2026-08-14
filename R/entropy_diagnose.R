@@ -21,15 +21,21 @@
 #' correlated predictors make them unstable and easy to misread as independent
 #' contributions.
 #'
-#' @param seu A Seurat object whose cells correspond, in the same order, to
-#'   `entropy` and the rows of `embedding`.
+#' @param seu Optional Seurat object whose cells correspond, in the same order,
+#'   to `entropy` and the rows of `embedding`. Supply `NULL` to run without
+#'   Seurat, for example on results from [run_entropy_h5ad()]. The expression
+#'   matrix is never used, the object is only read for cell names and for the
+#'   `group` metadata column.
 #' @param entropy Numeric vector with one finite value per cell.
 #' @param embedding Numeric matrix with cells in rows, in the same order as
 #'   `entropy`.
 #' @param k Positive integer number of nearest neighbours. It must be smaller
 #'   than the number of cells.
-#' @param group One non-empty character string naming a categorical column in
-#'   `seu[[]]`. Missing group values are not allowed.
+#' @param group Cluster labels, given in one of two ways. With a Seurat object,
+#'   one character string naming a categorical column in `seu[[]]`. With
+#'   `seu = NULL`, a factor or character vector with one label per cell, in the
+#'   same order as `entropy`. Missing group values are not allowed in either
+#'   form.
 #' @param covariates Optional data frame or named list of finite numeric
 #'   covariates, with one value per cell.
 #' @param covariate_type Optional named character vector. Values must be
@@ -74,7 +80,7 @@
 #'   for the matched comparison.
 #' @export
 entropy_diagnose <- function(
-    seu,
+    seu = NULL,
     entropy,
     embedding,
     k = 30,
@@ -495,8 +501,9 @@ print.entropy_diagnostic <- function(x, ...) {
 
 
 .entropy_validate_inputs <- function(seu, entropy, embedding, k, group, covariates) {
-  if (!inherits(seu, "Seurat")) {
-    stop("`seu` must be a Seurat object.", call. = FALSE)
+  use_object <- !is.null(seu)
+  if (use_object && !inherits(seu, "Seurat")) {
+    stop("`seu` must be a Seurat object or `NULL`.", call. = FALSE)
   }
   if (!is.numeric(entropy) || !is.atomic(entropy) || !is.null(dim(entropy))) {
     stop("`entropy` must be a numeric vector.", call. = FALSE)
@@ -512,16 +519,30 @@ print.entropy_diagnostic <- function(x, ...) {
   if (nrow(embedding) != length(entropy)) {
     stop("`embedding` must have one row per value in `entropy`.", call. = FALSE)
   }
-  if (ncol(seu) != length(entropy)) {
-    stop("`seu`, `entropy`, and `embedding` must contain the same number of cells.",
+  if (use_object) {
+    if (ncol(seu) != length(entropy)) {
+      stop("`seu`, `entropy`, and `embedding` must contain the same number of cells.",
+           call. = FALSE)
+    }
+    cell_names <- colnames(seu)
+  } else {
+    cell_names <- entropy_names
+    if (is.null(cell_names)) {
+      cell_names <- rownames(embedding)
+    }
+    if (is.null(cell_names)) {
+      cell_names <- paste0("cell", seq_along(entropy))
+    }
+    if (anyDuplicated(cell_names)) {
+      stop("Cell names must be unique.", call. = FALSE)
+    }
+  }
+  if (!is.null(entropy_names) && !identical(entropy_names, cell_names)) {
+    stop("Names of `entropy` must exactly match the cell order used by the diagnostic.",
          call. = FALSE)
   }
-  cell_names <- colnames(seu)
-  if (!is.null(entropy_names) && !identical(entropy_names, cell_names)) {
-    stop("Names of `entropy` must exactly match the cell order in `seu`.", call. = FALSE)
-  }
   if (!is.null(rownames(embedding)) && !identical(rownames(embedding), cell_names)) {
-    stop("Row names of `embedding` must exactly match the cell order in `seu`.",
+    stop("Row names of `embedding` must exactly match the cell order used by the diagnostic.",
          call. = FALSE)
   }
   if (ncol(embedding) < 1L || any(!is.finite(embedding))) {
@@ -533,26 +554,52 @@ print.entropy_diagnostic <- function(x, ...) {
          call. = FALSE)
   }
 
-  if (missing(group) || !is.character(group) || length(group) != 1L ||
-      is.na(group) || !nzchar(group)) {
-    stop("`group` must be one non-empty metadata column name.", call. = FALSE)
+  if (missing(group) || is.null(group)) {
+    stop(
+      paste0(
+        "`group` must be a metadata column name when `seu` is supplied, or a ",
+        "per-cell vector of cluster labels when it is not."
+      ),
+      call. = FALSE
+    )
   }
-  metadata <- seu[[]]
-  if (!group %in% names(metadata)) {
-    stop(sprintf("Group column '%s' was not found in `seu` metadata.", group),
-         call. = FALSE)
+
+  column_name <- is.character(group) && length(group) == 1L &&
+    !is.na(group) && nzchar(group) && length(entropy) != 1L
+  if (column_name && !use_object) {
+    stop(
+      paste0(
+        "`group` looks like a column name but `seu` is `NULL`. Supply a ",
+        "per-cell vector of cluster labels instead."
+      ),
+      call. = FALSE
+    )
   }
-  group_values <- metadata[[group]]
+
+  if (column_name) {
+    group_name <- group
+    metadata <- seu[[]]
+    if (!group %in% names(metadata)) {
+      stop(sprintf("Group column '%s' was not found in `seu` metadata.", group),
+           call. = FALSE)
+    }
+    group_values <- metadata[[group]]
+  } else {
+    group_name <- "group"
+    group_values <- group
+    if (length(group_values) != length(entropy)) {
+      stop("`group` must have one value per cell.", call. = FALSE)
+    }
+  }
+
   if ((!is.factor(group_values) && !is.character(group_values)) || anyNA(group_values)) {
-    stop("The selected group metadata column must contain non-missing categorical values.",
-         call. = FALSE)
+    stop("Group labels must be non-missing categorical values.", call. = FALSE)
   }
   group_values <- factor(
     as.character(group_values), levels = unique(as.character(group_values))
   )
   if (nlevels(group_values) < 2L) {
-    stop("The selected group metadata column must contain at least two groups.",
-         call. = FALSE)
+    stop("Group labels must contain at least two groups.", call. = FALSE)
   }
 
   covariate_data <- .entropy_diagnostic_covariates(covariates, length(entropy))
@@ -561,7 +608,7 @@ print.entropy_diagnostic <- function(x, ...) {
     embedding = embedding,
     k = as.integer(k),
     group = group_values,
-    group_name = group,
+    group_name = group_name,
     cell_names = cell_names,
     covariates = covariate_data
   )

@@ -9,7 +9,8 @@ read_h5ad_inputs(
   layer = NULL,
   pca_key = "X_pca",
   restrict_by = NULL,
-  need_embedding = TRUE
+  need_embedding = TRUE,
+  read_obs = FALSE
 )
 }
 \description{

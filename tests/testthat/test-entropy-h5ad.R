@@ -97,3 +97,67 @@ test_that("run_entropy_h5ad works in binary mode", {
   expect_true(any(result$Entropy_mean > 0))
   expect_true(all(result$Entropy_mean <= 1))
 })
+test_that("run_entropy_h5ad returns its inputs on request", {
+  skip_if_h5ad_unavailable()
+  path <- testthat::test_path("fixtures", "pbmc_synth_small.h5ad")
+
+  result <- run_entropy_h5ad(
+    path, layer = "counts", k = 15, mode = "counts", return_inputs = TRUE
+  )
+
+  expect_type(result, "list")
+  expect_named(
+    result,
+    c("entropy", "entropy_depth_corrected", "embedding", "obs", "results")
+  )
+  expect_null(result$entropy_depth_corrected)
+  expect_true(is.numeric(result$entropy))
+  expect_identical(names(result$entropy), rownames(result$results))
+  expect_identical(rownames(result$embedding), rownames(result$results))
+  expect_identical(rownames(result$obs), rownames(result$results))
+  expect_equal(unname(result$entropy), result$results$Entropy_mean)
+})
+
+
+test_that("run_entropy_h5ad depth correction adds the expected columns", {
+  skip_if_h5ad_unavailable()
+  path <- testthat::test_path("fixtures", "pbmc_synth_small.h5ad")
+
+  plain <- run_entropy_h5ad(path, layer = "counts", k = 15, mode = "counts")
+
+  set.seed(11)
+  corrected <- suppressWarnings(run_entropy_h5ad(
+    path, layer = "counts", k = 15, mode = "counts",
+    depth_correct = TRUE, depth_quantile = 0.05
+  ))
+
+  expect_identical(
+    colnames(corrected),
+    c("Entropy_mean", "Entropy_mean_depth_corrected", "depth_corrected")
+  )
+  expect_identical(corrected$Entropy_mean, plain$Entropy_mean)
+  expect_identical(rownames(corrected), rownames(plain))
+  expect_type(corrected$depth_corrected, "logical")
+  expect_true(all(is.finite(corrected$Entropy_mean_depth_corrected)))
+})
+
+
+test_that("run_entropy_h5ad validates the depth correction arguments", {
+  skip_if_h5ad_unavailable()
+  path <- testthat::test_path("fixtures", "pbmc_synth_small.h5ad")
+
+  expect_error(
+    run_entropy_h5ad(path, layer = "counts", depth_correct = "yes"),
+    "must be TRUE or FALSE"
+  )
+  expect_error(
+    run_entropy_h5ad(path, layer = "counts", depth_correct = TRUE,
+                     depth_quantile = 0),
+    "strictly between 0 and 1"
+  )
+  expect_error(
+    run_entropy_h5ad(path, layer = "counts", depth_correct = TRUE,
+                     target_depth = -5),
+    "positive integer"
+  )
+})

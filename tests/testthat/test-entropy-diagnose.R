@@ -535,3 +535,60 @@ test_that("large reports paginate 20 clusters and 6 covariates", {
     "neither purely technical nor purely biological"
   )
 })
+test_that("entropy_diagnose runs without a Seurat object", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_diagnostic_fixture(
+    rep(c("A", "B"), each = 60),
+    rep(seq(-1, 1, length.out = 60), 2),
+    c(seq(0, 1, length.out = 60), seq(0.5, 1.5, length.out = 60))
+  )
+
+  with_object <- entropy_diagnose(
+    seu = fixture$seu, entropy = fixture$entropy,
+    embedding = fixture$embedding, k = 5, group = "cluster",
+    covariates = fixture$covariates, min_bin_n = 5, min_cluster_n = 10,
+    verbose = FALSE
+  )
+
+  group_vector <- fixture$seu$cluster
+  without_object <- entropy_diagnose(
+    seu = NULL, entropy = fixture$entropy,
+    embedding = fixture$embedding, k = 5, group = group_vector,
+    covariates = fixture$covariates, min_bin_n = 5, min_cluster_n = 10,
+    verbose = FALSE
+  )
+
+  expect_identical(
+    without_object$cluster_table$flag,
+    with_object$cluster_table$flag
+  )
+  expect_equal(
+    without_object$cluster_table$matched_diff_std,
+    with_object$cluster_table$matched_diff_std
+  )
+  expect_identical(without_object$provenance$group_column, "group")
+})
+
+
+test_that("entropy_diagnose rejects a column name when seu is NULL", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_diagnostic_fixture(
+    rep(c("A", "B"), each = 30),
+    seq_len(60),
+    stats::rnorm(60)
+  )
+  expect_error(
+    entropy_diagnose(
+      seu = NULL, entropy = fixture$entropy, embedding = fixture$embedding,
+      k = 5, group = "cluster", verbose = FALSE
+    ),
+    "looks like a column name"
+  )
+  expect_error(
+    entropy_diagnose(
+      seu = NULL, entropy = fixture$entropy, embedding = fixture$embedding,
+      k = 5, group = rep("A", 10L), verbose = FALSE
+    ),
+    "one value per cell"
+  )
+})

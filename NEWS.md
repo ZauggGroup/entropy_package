@@ -1,5 +1,25 @@
 # Entropy 0.6.0
 
+* `entropy_diagnose()` no longer requires a Seurat object. Pass `seu = NULL` and
+  give `group` as a per-cell vector of cluster labels. The expression matrix was
+  never used by the diagnostic, only cell names and one metadata column, so this
+  removes an artificial dependency and makes the diagnostic usable from the
+  AnnData path.
+
+* `run_entropy_h5ad()` gains `depth_correct`, `depth_quantile` and
+  `target_depth`, matching `run_entropy()`. AnnData users can now correct the
+  depth confound as well as diagnose it. The returned data frame carries
+  `Entropy_mean_depth_corrected` and a logical `depth_corrected` column, and
+  `output_path` then saves the corrected matrix. The neighbourhood entropy loop
+  was factored into a single internal pass that both the corrected and
+  uncorrected computations share, rather than being duplicated.
+
+* `run_entropy_h5ad()` gains `return_inputs`. When `TRUE` it returns the per-cell
+  entropy vector, the embedding used for neighbours, the `obs` metadata, and the
+  usual results data frame. Together with the change above, this lets AnnData
+  users run `entropy_diagnose()` without a second read of the file and without
+  installing Seurat.
+
 * `run_entropy()` gains optional count-depth correction. Sequencing depth can
   inflate entropy because deeper libraries sample the expression distribution
   more completely. With `depth_correct = TRUE`, the function also computes

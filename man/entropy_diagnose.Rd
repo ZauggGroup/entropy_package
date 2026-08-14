@@ -5,7 +5,7 @@
 \title{Diagnose entropy against density and other covariates}
 \usage{
 entropy_diagnose(
-  seu,
+  seu = NULL,
   entropy,
   embedding,
   k = 30,
@@ -27,8 +27,11 @@ entropy_diagnose(
 )
 }
 \arguments{
-\item{seu}{A Seurat object whose cells correspond, in the same order, to
-`entropy` and the rows of `embedding`.}
+\item{seu}{Optional Seurat object whose cells correspond, in the same order,
+to `entropy` and the rows of `embedding`. Supply `NULL` to run without
+Seurat, for example on results from [run_entropy_h5ad()]. The expression
+matrix is never used, the object is only read for cell names and for the
+`group` metadata column.}
 
 \item{entropy}{Numeric vector with one finite value per cell.}
 
@@ -38,8 +41,11 @@ entropy_diagnose(
 \item{k}{Positive integer number of nearest neighbours. It must be smaller
 than the number of cells.}
 
-\item{group}{One non-empty character string naming a categorical column in
-`seu[[]]`. Missing group values are not allowed.}
+\item{group}{Cluster labels, given in one of two ways. With a Seurat object,
+one character string naming a categorical column in `seu[[]]`. With
+`seu = NULL`, a factor or character vector with one label per cell, in the
+same order as `entropy`. Missing group values are not allowed in either
+form.}
 
 \item{covariates}{Optional data frame or named list of finite numeric
 covariates, with one value per cell.}

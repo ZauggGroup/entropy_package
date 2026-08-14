@@ -19,7 +19,11 @@ run_entropy_h5ad(
   chunk_cells = 2000,
   parallelize = FALSE,
   n_cores = parallel::detectCores() - 1L,
-  output_path = NULL
+  output_path = NULL,
+  return_inputs = FALSE,
+  depth_correct = FALSE,
+  depth_quantile = 0.05,
+  target_depth = NULL
 )
 }
 \arguments{
@@ -69,6 +73,32 @@ only. Not supported on Windows. Default FALSE.}
 \item{output_path}{Optional character. If set, saves the full gene x cell
 entropy matrix with `saveRDS()`. The per-cell mean data frame is still
 returned.}
+
+\item{return_inputs}{Logical. If `TRUE`, return a list with the per-cell
+`entropy` vector, the `embedding` used for neighbours, the `obs` metadata
+read from the file, and the usual per-cell `results` data frame. This is
+the input [entropy_diagnose()] needs, so the diagnostic can be run without
+reading the file a second time and without a Seurat object. The default is
+`FALSE`, which returns only the data frame.}
+
+\item{depth_correct}{Logical. If `TRUE`, also compute entropy after thinning
+each cell's counts to a common library depth. Sequencing depth inflates
+entropy for a technical reason: entropy is concave, so subsampling biases
+its estimate downward and more deeply sequenced cells score higher. The
+returned data frame then carries `Entropy_mean_depth_corrected` alongside
+`Entropy_mean`, plus a logical `depth_corrected` marking which cells were
+actually thinned. Neighbourhoods are unchanged, only the counts fed to the
+estimator are. When `output_path` is also given, the saved matrix is the
+depth-corrected one. The default is `FALSE`.}
+
+\item{depth_quantile}{Numeric. Quantile of the cell count totals used to
+choose the target depth when `target_depth` is `NULL`. Must be strictly
+between 0 and 1. It is effectively the fraction of cells left uncorrected,
+because cells already below the target keep their counts. The default is
+0.05.}
+
+\item{target_depth}{Optional positive integer target for count thinning. If
+supplied, it overrides `depth_quantile`.}
 }
 \value{
 A data frame with cell identifiers as row names and one column,

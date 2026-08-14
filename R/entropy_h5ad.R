@@ -46,6 +46,28 @@
 #' @param parallelize Logical. Parallelize chunks across cores. Chunked mode
 #'   only. Not supported on Windows. Default FALSE.
 #' @param n_cores Integer. Cores when `parallelize = TRUE`.
+#' @param depth_correct Logical. If `TRUE`, also compute entropy after thinning
+#'   each cell's counts to a common library depth. Sequencing depth inflates
+#'   entropy for a technical reason: entropy is concave, so subsampling biases
+#'   its estimate downward and more deeply sequenced cells score higher. The
+#'   returned data frame then carries `Entropy_mean_depth_corrected` alongside
+#'   `Entropy_mean`, plus a logical `depth_corrected` marking which cells were
+#'   actually thinned. Neighbourhoods are unchanged, only the counts fed to the
+#'   estimator are. When `output_path` is also given, the saved matrix is the
+#'   depth-corrected one. The default is `FALSE`.
+#' @param depth_quantile Numeric. Quantile of the cell count totals used to
+#'   choose the target depth when `target_depth` is `NULL`. Must be strictly
+#'   between 0 and 1. It is effectively the fraction of cells left uncorrected,
+#'   because cells already below the target keep their counts. The default is
+#'   0.05.
+#' @param target_depth Optional positive integer target for count thinning. If
+#'   supplied, it overrides `depth_quantile`.
+#' @param return_inputs Logical. If `TRUE`, return a list with the per-cell
+#'   `entropy` vector, the `embedding` used for neighbours, the `obs` metadata
+#'   read from the file, and the usual per-cell `results` data frame. This is
+#'   the input [entropy_diagnose()] needs, so the diagnostic can be run without
+#'   reading the file a second time and without a Seurat object. The default is
+#'   `FALSE`, which returns only the data frame.
 #' @param output_path Optional character. If set, saves the full gene x cell
 #'   entropy matrix with `saveRDS()`. The per-cell mean data frame is still
 #'   returned.
@@ -73,12 +95,37 @@ run_entropy_h5ad <- function(
     chunk_cells      = 2000,
     parallelize      = FALSE,
     n_cores          = parallel::detectCores() - 1L,
-    output_path      = NULL
+    output_path      = NULL,
+    return_inputs    = FALSE,
+    depth_correct    = FALSE,
+    depth_quantile   = 0.05,
+    target_depth     = NULL
 ){
 
   neighbors_method <- match.arg(neighbors_method)
   mode <- match.arg(mode)
   chunk_method <- match.arg(chunk_method)
+
+  if (length(return_inputs) != 1L || !is.logical(return_inputs) ||
+      is.na(return_inputs)) {
+    stop("`return_inputs` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (length(depth_correct) != 1L || !is.logical(depth_correct) ||
+      is.na(depth_correct)) {
+    stop("`depth_correct` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (length(depth_quantile) != 1L || !is.numeric(depth_quantile) ||
+      !is.finite(depth_quantile) || depth_quantile <= 0 ||
+      depth_quantile >= 1) {
+    stop("`depth_quantile` must be one number strictly between 0 and 1.",
+         call. = FALSE)
+  }
+  if (!is.null(target_depth) &&
+      (length(target_depth) != 1L || !is.numeric(target_depth) ||
+       !is.finite(target_depth) || target_depth != floor(target_depth) ||
+       target_depth < 1)) {
+    stop("`target_depth` must be one positive integer or `NULL`.", call. = FALSE)
+  }
 
   check_h5ad_dependencies()
 
@@ -99,7 +146,10 @@ run_entropy_h5ad <- function(
   ### read the h5ad: counts (genes x cells), embedding (cells x dims), obs
   inputs <- read_h5ad_inputs(path, layer = layer, pca_key = pca_key,
                              restrict_by = restrict_by,
-                             need_embedding = (neighbors_method == "auto" || chunk_method == "auto"))
+                             need_embedding = (neighbors_method == "auto" ||
+                                                 chunk_method == "auto" ||
+                                                 return_inputs),
+                             read_obs = return_inputs)
   mat        <- inputs$mat          # dgCMatrix, genes x cells
   emb_full   <- inputs$emb          # cells x dims, or NULL
   grp_vec    <- inputs$groups       # named char vector or NULL
@@ -362,8 +412,68 @@ run_entropy_h5ad <- function(
 
   ###################### NN finish ############################################
 
+  depth_target <- NULL
+  depth_corrected_mat <- NULL
+  depth_corrected_cells <- NULL
+  n_cells_below_target <- 0L
+  n_cells_corrected <- 0L
+  if (depth_correct) {
+    depth_totals <- Matrix::colSums(mat)
+    depth_target <- if (is.null(target_depth)) {
+      floor(stats::quantile(
+        depth_totals, probs = depth_quantile, names = FALSE, type = 7
+      ))
+    } else {
+      as.integer(target_depth)
+    }
+    if (!is.finite(depth_target) || depth_target < 1) {
+      stop("The depth correction target is below 1 count.", call. = FALSE)
+    }
+    n_cells_below_target <- sum(depth_totals < depth_target)
+    n_cells_corrected <- sum(depth_totals > depth_target)
+    depth_corrected_cells <- depth_totals > depth_target
+    names(depth_corrected_cells) <- cell_names
+
+    below_fraction <- n_cells_below_target / length(depth_totals)
+    if (below_fraction > 0.1) {
+      warning(sprintf(
+        paste0(
+          "%d cells (%.1f%%) are below the target depth and cannot be ",
+          "downsampled; they will keep their original counts."
+        ),
+        n_cells_below_target, 100 * below_fraction
+      ), call. = FALSE)
+    }
+    if (depth_target < 200) {
+      warning(sprintf(
+        paste0(
+          "The target depth is %d counts. Entropy estimates at depths below ",
+          "200 counts may be unreliable."
+        ),
+        depth_target
+      ), call. = FALSE)
+    }
+    if (mode == "binary") {
+      warning(
+        paste0(
+          "Depth correction has not been validated for binary mode. ",
+          "The default depth_quantile was chosen using count based entropy."
+        ),
+        call. = FALSE
+      )
+    }
+    futile.logger::flog.info(
+      "Depth correction target: %d counts; %d of %d cells will be corrected.",
+      depth_target, n_cells_corrected, length(depth_totals)
+    )
+    depth_corrected_mat <- .entropy_downsample_matrix(mat, depth_target)
+  }
+
   if (!is.null(features)) {
     mat <- mat[features, , drop = FALSE]
+    if (depth_correct) {
+      depth_corrected_mat <- depth_corrected_mat[features, , drop = FALSE]
+    }
   }
 
   if (mode == "binary") {
@@ -380,86 +490,144 @@ run_entropy_h5ad <- function(
     .entropy_cache$binary_entropy_lookup <- readRDS(system.file("extdata", "binary_entropy_lookup_100.rds", package = "Entropy"))
   }
 
-  pb <- progress::progress_bar$new(
-    format = "  Processing [:bar] :percent | :current/:total cells",
-    total = n_cells, clear = FALSE, width = 60
-  )
-
   #### chunks (k-means on the embedding, no Leiden)
   if (chunk_method == "auto") {
     futile.logger::flog.info("Preparing chunks by k-means on the embedding.")
     chunks <- prepare_chunks_emb(emb, chunk_cells = chunk_cells, cell_names = cell_names)
   }
 
-  entropy_matrix <- matrix(
-    0, nrow = nrow(mat), ncol = n_cells,
-    dimnames = list(rownames(mat), cell_names)
-  )
+  ## One pass of the neighbourhood entropy loop. Called once normally, and a
+  ## second time on the downsampled counts when depth_correct = TRUE.
+  compute_entropy_matrix <- function(mat_use, mat_bin_use) {
+    pb <- progress::progress_bar$new(
+      format = "  Processing [:bar] :percent | :current/:total cells",
+      total = n_cells, clear = FALSE, width = 60
+    )
 
-  if (chunk_method == "none") {
-    for (i in seq_len(n_cells)) {
-      cell_name <- cell_names[i]
-      if (i %% 100 == 0) pb$tick(100)
-      nn_idx <- nn_list[[cell_name]]
-      if (mode == "binary") {
-        entropy_matrix[, cell_name] <- calculate_entropy_for_cell_binary_fast(
-          cell_name = cell_name, mat_bin = mat_bin, neighbors_idx = nn_idx)
-      } else {
-        entropy_matrix[, cell_name] <- calculate_entropy_for_cell(
-          cell_name = cell_name, mat = mat, neighbors_idx = nn_idx)
-      }
-    }
-    if (n_cells %% 100 != 0) pb$tick(n_cells %% 100)
-  } else {
-    run_chunk <- function(chunk_cell_names) {
-      all_nn_idx <- unique(unlist(nn_list[chunk_cell_names]))
-      if (mode == "binary") {
-        mat_chunk <- mat_bin[, all_nn_idx, drop = FALSE]
-      } else {
-        mat_chunk <- mat[, all_nn_idx, drop = FALSE]
-      }
-      idx_remap <- stats::setNames(seq_along(all_nn_idx), all_nn_idx)
-      chunk_matrix <- matrix(
-        0, nrow = nrow(mat), ncol = length(chunk_cell_names),
-        dimnames = list(rownames(mat), chunk_cell_names)
-      )
-      for (cell_name in chunk_cell_names) {
-        nn_idx_full  <- nn_list[[cell_name]]
-        nn_idx_chunk <- as.integer(idx_remap[as.character(nn_idx_full)])
+
+    entropy_matrix <- matrix(
+      0, nrow = nrow(mat_use), ncol = n_cells,
+      dimnames = list(rownames(mat_use), cell_names)
+    )
+
+    if (chunk_method == "none") {
+      for (i in seq_len(n_cells)) {
+        cell_name <- cell_names[i]
+        if (i %% 100 == 0) pb$tick(100)
+        nn_idx <- nn_list[[cell_name]]
         if (mode == "binary") {
-          chunk_matrix[, cell_name] <- calculate_entropy_for_cell_binary_fast(
-            cell_name = cell_name, mat_bin = mat_chunk, neighbors_idx = nn_idx_chunk)
+          entropy_matrix[, cell_name] <- calculate_entropy_for_cell_binary_fast(
+            cell_name = cell_name, mat_bin = mat_bin_use, neighbors_idx = nn_idx)
         } else {
-          chunk_matrix[, cell_name] <- calculate_entropy_for_cell(
-            cell_name = cell_name, mat = mat_chunk, neighbors_idx = nn_idx_chunk)
+          entropy_matrix[, cell_name] <- calculate_entropy_for_cell(
+            cell_name = cell_name, mat = mat_use, neighbors_idx = nn_idx)
         }
       }
-      chunk_matrix
-    }
-    if (parallelize) {
-      futile.logger::flog.info("Running chunks in parallel with %d cores.", n_cores)
-      chunk_results <- parallel::mclapply(chunks, run_chunk, mc.cores = n_cores)
+      if (n_cells %% 100 != 0) pb$tick(n_cells %% 100)
     } else {
-      futile.logger::flog.info("Running chunks sequentially.")
-      chunk_results <- lapply(chunks, function(chunk_cell_names) {
-        pb$tick(length(chunk_cell_names))
-        run_chunk(chunk_cell_names)
-      })
+      run_chunk <- function(chunk_cell_names) {
+        all_nn_idx <- unique(unlist(nn_list[chunk_cell_names]))
+        if (mode == "binary") {
+          mat_chunk <- mat_bin_use[, all_nn_idx, drop = FALSE]
+        } else {
+          mat_chunk <- mat_use[, all_nn_idx, drop = FALSE]
+        }
+        idx_remap <- stats::setNames(seq_along(all_nn_idx), all_nn_idx)
+        chunk_matrix <- matrix(
+          0, nrow = nrow(mat_use), ncol = length(chunk_cell_names),
+          dimnames = list(rownames(mat_use), chunk_cell_names)
+        )
+        for (cell_name in chunk_cell_names) {
+          nn_idx_full  <- nn_list[[cell_name]]
+          nn_idx_chunk <- as.integer(idx_remap[as.character(nn_idx_full)])
+          if (mode == "binary") {
+            chunk_matrix[, cell_name] <- calculate_entropy_for_cell_binary_fast(
+              cell_name = cell_name, mat_bin = mat_chunk, neighbors_idx = nn_idx_chunk)
+          } else {
+            chunk_matrix[, cell_name] <- calculate_entropy_for_cell(
+              cell_name = cell_name, mat = mat_chunk, neighbors_idx = nn_idx_chunk)
+          }
+        }
+        chunk_matrix
+      }
+      if (parallelize) {
+        futile.logger::flog.info("Running chunks in parallel with %d cores.", n_cores)
+        chunk_results <- parallel::mclapply(chunks, run_chunk, mc.cores = n_cores)
+      } else {
+        futile.logger::flog.info("Running chunks sequentially.")
+        chunk_results <- lapply(chunks, function(chunk_cell_names) {
+          pb$tick(length(chunk_cell_names))
+          run_chunk(chunk_cell_names)
+        })
+      }
+      for (i in seq_along(chunk_results)) {
+        cn <- colnames(chunk_results[[i]])
+        entropy_matrix[, cn] <- chunk_results[[i]]
+      }
     }
-    for (i in seq_along(chunk_results)) {
-      cn <- colnames(chunk_results[[i]])
-      entropy_matrix[, cn] <- chunk_results[[i]]
-    }
+
+    entropy_matrix
   }
 
-  if (!is.null(output_path)) {
+  entropy_matrix <- compute_entropy_matrix(
+    mat, if (mode == "binary") mat_bin else NULL
+  )
+
+  means <- colMeans(entropy_matrix)
+
+  if (!is.null(output_path) && !depth_correct) {
     saveRDS(entropy_matrix, output_path)
     futile.logger::flog.info("Full entropy matrix saved to: %s", output_path)
   }
 
-  means <- colMeans(entropy_matrix)
   out <- data.frame(Entropy_mean = means)
   rownames(out) <- cell_names
+
+  if (depth_correct) {
+    # The uncorrected dense matrix is not needed after its means are taken.
+    # Release it before allocating the corrected one.
+    rm(entropy_matrix)
+    gc()
+
+    depth_corrected_mat_bin <- NULL
+    if (mode == "binary") {
+      depth_corrected_mat_bin <- Matrix::Matrix(
+        depth_corrected_mat > 0, sparse = TRUE
+      )
+    }
+    futile.logger::flog.info("Computing depth-corrected entropy.")
+    depth_corrected_entropy_matrix <- compute_entropy_matrix(
+      depth_corrected_mat, depth_corrected_mat_bin
+    )
+
+    if (!is.null(output_path)) {
+      saveRDS(depth_corrected_entropy_matrix, output_path)
+      futile.logger::flog.info(
+        "Full DEPTH CORRECTED entropy matrix saved to: %s", output_path
+      )
+    }
+
+    out$Entropy_mean_depth_corrected <- colMeans(depth_corrected_entropy_matrix)
+    out$depth_corrected <- unname(depth_corrected_cells[cell_names])
+  }
+
+  if (return_inputs) {
+    futile.logger::flog.info(
+      "Returning per-cell mean entropy, embedding, and obs for %d cells.", n_cells
+    )
+    return(list(
+      entropy   = stats::setNames(means, cell_names),
+      entropy_depth_corrected = if (depth_correct) {
+        stats::setNames(out$Entropy_mean_depth_corrected, cell_names)
+      } else {
+        NULL
+      },
+      embedding = emb_full,
+      obs       = inputs$obs,
+      results   = out
+    ))
+  }
+
   futile.logger::flog.info("Returning per-cell mean entropy for %d cells.", n_cells)
   out
 }
@@ -476,7 +644,8 @@ run_entropy_h5ad <- function(
 #'
 #' @keywords internal
 read_h5ad_inputs <- function(path, layer = NULL, pca_key = "X_pca",
-                             restrict_by = NULL, need_embedding = TRUE) {
+                             restrict_by = NULL, need_embedding = TRUE,
+                             read_obs = FALSE) {
 
   check_h5ad_dependencies()
 
@@ -517,7 +686,13 @@ read_h5ad_inputs <- function(path, layer = NULL, pca_key = "X_pca",
     names(groups) <- cell_names
   }
 
-  list(mat = mat, emb = emb, groups = groups,
+  obs <- NULL
+  if (read_obs) {
+    obs <- as.data.frame(adata$obs)
+    rownames(obs) <- cell_names
+  }
+
+  list(mat = mat, emb = emb, groups = groups, obs = obs,
        cell_names = cell_names, feature_names = feature_names)
 }
 
