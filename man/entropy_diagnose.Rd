@@ -20,6 +20,7 @@ entropy_diagnose(
   support_threshold = 0.5,
   effect_threshold = 0.1,
   elevated_threshold = 0.1,
+  retained_min_delta = 0.5,
   joint_model = TRUE,
   provenance = NULL,
   verbose = TRUE
@@ -73,6 +74,11 @@ which an elevated cluster is called `"explained"`.}
 \item{elevated_threshold}{Standardized entropy difference above which a
 cluster is considered elevated.}
 
+\item{retained_min_delta}{Non-negative minimum absolute standardized entropy
+difference required to report `retained`. The ratio is unstable for
+marginal elevations or deficits. A missing value means the cluster is not
+far enough from the global mean for the fraction to be interpretable.}
+
 \item{joint_model}{Logical. If `TRUE`, fit a joint model when more than one
 covariate is present.}
 
@@ -85,9 +91,12 @@ An object of class `entropy_diagnostic`. Its main result is
   `cluster_table`, with one row per cluster and covariate. Its `direction`
   column states whether entropy is elevated or depleted relative to other
   cells. `retained` is the matched standardized difference divided by the
-  cluster's standardized entropy elevation or deficit, and is missing near
-  the global mean. `bin_table` contains every matched-bin comparison. No p
-  values are computed for the matched comparison.
+  cluster's standardized entropy elevation or deficit. It is reported only
+  when the absolute standardized difference is beyond `elevated_threshold`
+  and at least `retained_min_delta`. A missing value means the cluster is not
+  elevated or depleted enough for the fraction to be interpretable.
+  `bin_table` contains every matched-bin comparison. No p values are computed
+  for the matched comparison.
 }
 \description{
 `entropy_diagnose()` asks whether entropy is elevated in each cluster and

@@ -91,6 +91,14 @@ test_that("entropy_diagnose validates core inputs", {
     ),
     "max_bin_imbalance"
   )
+  expect_error(
+    entropy_diagnose(
+      fixture$seu, fixture$entropy, fixture$embedding,
+      k = 5, group = "cluster", retained_min_delta = -0.1,
+      verbose = FALSE
+    ),
+    "retained_min_delta"
+  )
 })
 
 
@@ -251,7 +259,8 @@ test_that("a reversed matched difference is explained and marked", {
     make_diagnostic_fixture(group, covariate, entropy),
     n_bins = 20,
     min_bin_n = 5,
-    max_bin_imbalance = 0.1
+    max_bin_imbalance = 0.1,
+    retained_min_delta = 0.1
   ))
   row <- result$cluster_table[
     result$cluster_table$cluster == "shifted" &
@@ -308,6 +317,33 @@ test_that("retained and reversed are missing near the global mean", {
 })
 
 
+test_that("retained is missing for a marginal standardized entropy difference", {
+  skip_if_not_installed("Seurat")
+  n_each <- 120L
+  group <- rep(c("marginal_high", "marginal_low"), each = n_each)
+  base <- seq(-2, 2, length.out = n_each)
+  entropy <- c(base + 0.32, base)
+  covariate <- c(base, base)
+  result <- suppressWarnings(run_fixture_diagnostic(
+    make_diagnostic_fixture(group, covariate, entropy),
+    n_bins = 12,
+    min_bin_n = 3,
+    elevated_threshold = 0.1
+  ))
+  row <- result$cluster_table[
+    result$cluster_table$cluster == "marginal_high" &
+      result$cluster_table$covariate == "test_covariate",
+    , drop = FALSE
+  ]
+
+  expect_equal(result$thresholds$retained_min_delta, 0.5)
+  expect_equal(row$entropy_delta_std, 0.27, tolerance = 0.03)
+  expect_gt(abs(row$entropy_delta_std), result$thresholds$elevated_threshold)
+  expect_lt(abs(row$entropy_delta_std), result$thresholds$retained_min_delta)
+  expect_true(is.na(row$retained))
+})
+
+
 test_that("depleted clusters report retained deficit but not reversed", {
   skip_if_not_installed("Seurat")
   n_each <- 160L
@@ -318,7 +354,8 @@ test_that("depleted clusters report retained deficit but not reversed", {
       group, c(base, base), c(base + 0.5, base)
     ),
     n_bins = 16,
-    min_bin_n = 3
+    min_bin_n = 3,
+    retained_min_delta = 0.1
   ))
   row <- result$cluster_table[
     result$cluster_table$cluster == "low" &

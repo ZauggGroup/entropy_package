@@ -53,6 +53,10 @@
 #'   which an elevated cluster is called `"explained"`.
 #' @param elevated_threshold Standardized entropy difference above which a
 #'   cluster is considered elevated.
+#' @param retained_min_delta Non-negative minimum absolute standardized entropy
+#'   difference required to report `retained`. The ratio is unstable for
+#'   marginal elevations or deficits. A missing value means the cluster is not
+#'   far enough from the global mean for the fraction to be interpretable.
 #' @param joint_model Logical. If `TRUE`, fit a joint model when more than one
 #'   covariate is present.
 #' @param provenance Optional named list describing how entropy was computed.
@@ -62,9 +66,12 @@
 #'   `cluster_table`, with one row per cluster and covariate. Its `direction`
 #'   column states whether entropy is elevated or depleted relative to other
 #'   cells. `retained` is the matched standardized difference divided by the
-#'   cluster's standardized entropy elevation or deficit, and is missing near
-#'   the global mean. `bin_table` contains every matched-bin comparison. No p
-#'   values are computed for the matched comparison.
+#'   cluster's standardized entropy elevation or deficit. It is reported only
+#'   when the absolute standardized difference is beyond `elevated_threshold`
+#'   and at least `retained_min_delta`. A missing value means the cluster is not
+#'   elevated or depleted enough for the fraction to be interpretable.
+#'   `bin_table` contains every matched-bin comparison. No p values are computed
+#'   for the matched comparison.
 #' @export
 entropy_diagnose <- function(
     seu,
@@ -82,6 +89,7 @@ entropy_diagnose <- function(
     support_threshold = 0.5,
     effect_threshold = 0.1,
     elevated_threshold = 0.1,
+    retained_min_delta = 0.5,
     joint_model = TRUE,
     provenance = NULL,
     verbose = TRUE) {
@@ -116,6 +124,9 @@ entropy_diagnose <- function(
   )
   elevated_threshold <- .entropy_bounded_number(
     elevated_threshold, "elevated_threshold", lower = -Inf
+  )
+  retained_min_delta <- .entropy_bounded_number(
+    retained_min_delta, "retained_min_delta", lower = 0
   )
   .entropy_scalar_logical(joint_model, "joint_model")
   .entropy_scalar_logical(verbose, "verbose")
@@ -329,7 +340,9 @@ entropy_diagnose <- function(
         "elevated"
       }
       retained <- if (is.finite(entropy_delta_std) &&
-                      abs(entropy_delta_std) > elevated_threshold) {
+                      entropy_delta_std != 0 &&
+                      abs(entropy_delta_std) > elevated_threshold &&
+                      abs(entropy_delta_std) >= retained_min_delta) {
         matched_diff_std / entropy_delta_std
       } else {
         NA_real_
@@ -430,7 +443,8 @@ entropy_diagnose <- function(
       min_cluster_n = min_cluster_n,
       support_threshold = support_threshold,
       effect_threshold = effect_threshold,
-      elevated_threshold = elevated_threshold
+      elevated_threshold = elevated_threshold,
+      retained_min_delta = retained_min_delta
     )
   )
   class(result) <- "entropy_diagnostic"

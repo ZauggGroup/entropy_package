@@ -787,7 +787,8 @@ entropy_diagnose_report <- function(
       "The fraction of the cluster's entropy difference that survives matching.",
       "For elevated clusters this is retained elevation; for depleted clusters it",
       "is retained deficit. Near 1 means little is explained and near 0 means nearly",
-      "all is explained. It is not reported for clusters near the global mean."
+      "all is explained. NA means the cluster is not elevated or depleted enough",
+      "for the fraction to be interpretable."
     ),
     "R squared" = paste(
       "The fraction of cell-to-cell entropy variation accounted for by this covariate",
