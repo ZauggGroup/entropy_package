@@ -14,6 +14,33 @@
   `entropy_diagnose()` for computation and `entropy_diagnose_report()` for PDF
   reporting.
 
+* `entropy_diagnose()` reports a `retained` column: the fraction of a cluster's
+  entropy elevation that survives matching on a covariate. The flag records only
+  a threshold crossing, so `retained` is the number to read for magnitude. A
+  cluster can be flagged `not explained` while the covariate still accounts for
+  three quarters of its elevation.
+
+* `entropy_diagnose()` gains `retained_min_delta`, default 0.5. The ratio behind
+  `retained` is unstable when a cluster's standardized elevation is close to
+  zero, so it is now reported as `NA` below this threshold instead of returning
+  a large or negative value that cannot be read as a fraction.
+
+* `entropy_recompute_check()` gains an `improves` verdict for clusters whose
+  rank rises consistently after an intervention. These were previously labelled
+  `unstable`, which hid a meaningful positive result.
+
+* Added the vignette "Diagnosing confounds in entropy scores". It simulates
+  counts with known causes, shows the diagnostic separating a technical
+  elevation from a biological one, applies `depth_correct`, and states plainly
+  which cases the method cannot resolve.
+
+* Fixed a bug where depth correction failed in binary mode. Newer versions
+  of `scuttle` return an `SVT_SparseMatrix`, which was silently reshaped
+  when converted to a binary matrix, changing a 6 by 24 matrix into a 144
+  by 1 matrix. Downsampled counts are now always returned in
+  column-compressed sparse storage, and `rowCounts_CSC_cols()` checks its
+  input class and column indices instead of failing deep inside the loop.
+
 # Entropy 0.5.0
 
 ## Interventional entropy checks

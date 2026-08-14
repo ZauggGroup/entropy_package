@@ -109,6 +109,28 @@ calculate_entropy_for_cell_binary_fast <- function(cell_name, mat_bin, neighbors
 #' @keywords internal
 rowCounts_CSC_cols <- function(x, cols) {
 
+  if (!methods::is(x, "CsparseMatrix")) {
+    stop(
+      sprintf(
+        paste0(
+          "`x` must be a column-compressed sparse matrix, not '%s'. ",
+          "Other sparse classes can be silently reshaped when converted."
+        ),
+        paste(class(x), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  if (length(cols) && (max(cols) > ncol(x) || min(cols) < 1L)) {
+    stop(
+      sprintf(
+        "Column indices must lie between 1 and %d, the number of columns in `x`.",
+        ncol(x)
+      ),
+      call. = FALSE
+    )
+  }
+
   counts <- integer(nrow(x))
   p <- x@p
   i <- x@i

@@ -7,3 +7,5 @@
 ^old_ch_codes\.R$
 ^omnipathr-log$
 ^tmp$
+^_to_delete$
+^tools$

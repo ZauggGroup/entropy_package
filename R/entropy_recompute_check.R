@@ -694,7 +694,10 @@ print.entropy_recompute <- function(x, ...) {
   proportions <- pmin(1, target / totals)
   proportions[!is.finite(proportions)] <- 1
   if (requireNamespace("scuttle", quietly = TRUE)) {
-    return(scuttle::downsampleMatrix(counts, prop = proportions, bycol = TRUE))
+    downsampled <- scuttle::downsampleMatrix(
+      counts, prop = proportions, bycol = TRUE
+    )
+    return(.entropy_as_csparse(downsampled))
   }
   columns <- lapply(seq_len(ncol(counts)), function(column) {
     values <- as.numeric(counts[, column])
@@ -755,4 +758,46 @@ print.entropy_recompute <- function(x, ...) {
     stop(sprintf("`%s` is outside its allowed range.", argument), call. = FALSE)
   }
   as.numeric(value)
+}
+#' Internal: coerce a matrix to column-compressed sparse storage
+#'
+#' Downsampling backends can return classes other than `dgCMatrix`. Newer
+#' versions of `scuttle` return an `SVT_SparseMatrix` from the `SparseArray`
+#' package. Downstream code indexes the `@p` and `@i` slots directly and
+#' silently reshapes such objects, so every downsampled matrix is coerced to
+#' column-compressed sparse storage here, at the single point where it is
+#' produced.
+#'
+#' @param x A matrix-like object.
+#'
+#' @return The same values in `CsparseMatrix` storage, with dimensions and
+#'   dimnames preserved.
+#' @keywords internal
+.entropy_as_csparse <- function(x) {
+  if (inherits(x, "CsparseMatrix")) {
+    return(x)
+  }
+  original_dim <- dim(x)
+  original_dimnames <- dimnames(x)
+  converted <- tryCatch(
+    methods::as(x, "CsparseMatrix"),
+    error = function(error) {
+      Matrix::Matrix(as.matrix(x), sparse = TRUE)
+    }
+  )
+  if (!identical(dim(converted), original_dim)) {
+    stop(
+      sprintf(
+        paste0(
+          "Coercing the downsampled counts to sparse storage changed the ",
+          "dimensions from %d by %d to %d by %d."
+        ),
+        original_dim[[1L]], original_dim[[2L]],
+        dim(converted)[[1L]], dim(converted)[[2L]]
+      ),
+      call. = FALSE
+    )
+  }
+  dimnames(converted) <- original_dimnames
+  converted
 }

@@ -12,9 +12,12 @@ Description: Provides methods to estimate transcriptional entropy for
     individual cells in Seurat objects and AnnData h5ad files. It supports
     BUB-based and binary entropy estimation using neighborhood gene expression,
     with direct integration into R, Seurat, Python, and Scanpy workflows.
-    Diagnostic tools assess whether per-cell entropy is associated with local
-    embedding density or other covariates without treating residuals as
-    corrected entropy scores.
+    Optional count-depth correction thins every cell to a common library
+    depth before estimation, because sequencing depth inflates entropy for
+    purely technical reasons. Two diagnostics assess whether a per-cell score
+    is confounded: an observational screen that compares clusters at matched
+    covariate values, and an interventional check that alters the input and
+    recomputes entropy to ask whether the cluster ranking survives.
 License: LGPL (>= 3)
 URL: https://grp-zaugg.embl-community.io/entropy_package,
     https://git.embl.de/grp-zaugg/entropy_package

@@ -295,3 +295,55 @@ test_that("print method reports the headline result", {
   ))
   expect_output(print(result), "Headline rank correlation")
 })
+test_that("downsampled counts are returned in column-compressed storage", {
+  counts <- Matrix::Matrix(
+    matrix(
+      as.integer(c(50, 8, 5, 3, 2, 2) * rep(1:4, each = 6)),
+      nrow = 6L,
+      dimnames = list(paste0("gene", 1:6), paste0("cell", 1:4))
+    ),
+    sparse = TRUE
+  )
+  set.seed(1)
+  downsampled <- .entropy_downsample_matrix(counts, target = 40L)
+
+  expect_true(methods::is(downsampled, "CsparseMatrix"))
+  expect_identical(dim(downsampled), dim(counts))
+  expect_identical(dimnames(downsampled), dimnames(counts))
+  expect_true(all(Matrix::colSums(downsampled) <= Matrix::colSums(counts)))
+})
+
+
+test_that(".entropy_as_csparse preserves dimensions and dimnames", {
+  dense <- matrix(
+    c(1, 0, 2, 0, 3, 0),
+    nrow = 2L,
+    dimnames = list(c("a", "b"), c("x", "y", "z"))
+  )
+  converted <- .entropy_as_csparse(dense)
+
+  expect_true(methods::is(converted, "CsparseMatrix"))
+  expect_identical(dim(converted), c(2L, 3L))
+  expect_identical(dimnames(converted), dimnames(dense))
+  expect_equal(as.matrix(converted), dense)
+
+  already <- Matrix::Matrix(dense, sparse = TRUE)
+  expect_identical(.entropy_as_csparse(already), already)
+})
+
+
+test_that("rowCounts_CSC_cols rejects non-CSC input and bad columns", {
+  sparse <- Matrix::Matrix(
+    matrix(c(TRUE, FALSE, TRUE, TRUE), nrow = 2L),
+    sparse = TRUE
+  )
+  expect_error(
+    rowCounts_CSC_cols(as.matrix(sparse), 1L),
+    "column-compressed sparse matrix"
+  )
+  expect_error(
+    rowCounts_CSC_cols(sparse, 5L),
+    "Column indices must lie between"
+  )
+  expect_identical(rowCounts_CSC_cols(sparse, 1:2), c(2L, 1L))
+})
