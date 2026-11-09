@@ -41,6 +41,16 @@
 #'   when correction is recommended. The default is `TRUE`.
 #' @param seed Integer seed used reproducibly for every thinning run. A separate
 #'   deterministic seed derived from it selects the fixed gene panel.
+#' @section After selection:
+#' This function chooses a quantile, it does not produce the entropy you will
+#' analyse. The sweep scores a fixed random panel of 5,000 genes, which is
+#' unbiased for the all-gene mean and cancels out of every frontier ratio
+#' because the same panel is used at every quantile, but it is not a final
+#' score. It also runs with `add_assay = FALSE`, so no entropy assay is kept.
+#' Take `decision$q` and run [run_entropy()] over all genes with
+#' `depth_correct = TRUE, depth_quantile = decision$q`. When `decision$q` is 1,
+#' run [run_entropy()] with `depth_correct = FALSE` instead.
+#'
 #' @param ... Named arguments passed to [run_entropy()]. `assay` is required.
 #'   Common arguments are `k`, `reduction`, `dims`, `mode`, `chunk_method`,
 #'   `chunk_cells`, `parallelize`, and `n_cores`. A supplied `features` vector is

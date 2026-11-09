@@ -230,25 +230,18 @@ The default is $w=1.5$. It is a calibrated default, not a derived constant.
 Among values 1, 1.5, and 2, it was the only value that did not contradict the
 three datasets used during development.
 
-## The three real datasets
+## Why the default is 1.5
 
-The published development results were:
+`w = 1.5` is the package default. It was not derived, it was chosen during
+development by running the sweep on several real datasets and discarding the
+values that contradicted a decision already made by hand. A weight of 1 was
+too loose: it recommended correcting a dataset whose frontier was close to
+diagonal, where thinning shrinks the score instead of restructuring it. A
+weight of 2 was too strict: it refused a dataset whose frontier had a clear
+bulge and where correction was the right call.
 
-```{r real-results}
-real_results <- data.frame(
-  dataset = c("bone marrow (BM)", "bone marrow (JD)", "DS Atlas"),
-  chosen_q_at_w_1_5 = c("about 0.80 to 0.85", "0.85", "1, no correction"),
-  cumulative_price = c("0.31 at q = 0.70", "0.56", "0.92 best available"),
-  decision = c("correct", "correct", "do not correct"),
-  check.names = FALSE
-)
-knitr::kable(real_results)
-```
-
-At $w=1$, the DS Atlas would have been corrected, contrary to its author's
-decision. At $w=2$, the JD dataset would have been left uncorrected, contrary
-to the analysis that was accepted. Two of these three datasets are bone
-marrow, so this calibration is useful evidence, not a universal guarantee.
+So 1.5 is a reasonable starting point and nothing more. The frontier is the
+evidence; read yours before trusting any default.
 
 ## How to read a refusal
 
@@ -303,3 +296,48 @@ The report can be redrawn without recomputing entropy:
 saved <- readRDS("depth_selection/depth_selection.rds")
 entropy_depth_report(saved, "depth_selection_redrawn")
 ```
+
+## What to do with the answer
+
+`entropy_depth_select()` chooses a quantile. It does not produce the entropy
+you will analyse, and its scores should not be used as your result.
+
+Two reasons. First, the sweep scores a **fixed random panel of 5,000 genes**
+rather than every gene. A mean over a random subset is unbiased for the mean
+over all genes, and because the same panel is used at every quantile including
+the uncorrected baseline, the subsetting error is shared by numerator and
+denominator and cancels in every ratio on the frontier. That makes the panel
+fine for comparing quantiles and wrong for a final score. Second, the sweep
+runs with `add_assay = FALSE`, so no entropy assay is kept.
+
+So the selector tells you which quantile, and you then run the real thing over
+all genes:
+
+```{r final-run, eval=FALSE}
+# q comes from the selector, not typed from memory
+q <- selection$decision$q
+
+seu <- run_entropy(
+  seu,
+  assay = "RNA",
+  k = 15,
+  reduction = "pca_RNA",
+  dims = 1:20,
+  mode = "counts",
+  depth_correct = TRUE,
+  depth_quantile = q
+)
+```
+
+When the recommendation is not to correct, `decision$q` is 1 and there is
+nothing to pass on. Run `run_entropy()` with `depth_correct = FALSE` and use
+the uncorrected score.
+
+One trap worth repeating: with `depth_correct = TRUE`, the metadata column
+`entropy_mean_<assay>` holds the **uncorrected** mean and
+`entropy_mean_<assay>_depth_corrected` holds the corrected one. Everything
+downstream must read the `_depth_corrected` column.
+
+On a large object, add `block_dir` to the final run so the gene-by-cell matrix
+is written in restartable blocks instead of being held in memory. See
+[Full Workflow](workflow.html).

@@ -109,6 +109,26 @@ covariate associations. See the
 [Choosing depth correction](choosing_depth_correction.html) tutorial for how to
 read those panels and how the retention weight changes the choice.
 
+The selector only picks the quantile. It scores a fixed random panel of 5,000
+genes, which cancels out of every frontier ratio but is not a final score, and
+it keeps no entropy assay. Take the chosen quantile and run the real thing over
+all genes:
+
+```{r, eval=FALSE}
+result_corrected <- run_entropy(
+  seu,
+  assay = "RNA",
+  neighbors = NULL,
+  k = 15,
+  mode = "counts",
+  depth_correct = TRUE,
+  depth_quantile = depth_selection$decision$q
+)
+```
+
+If the recommendation is not to correct, `decision$q` is 1; run with
+`depth_correct = FALSE` and use the uncorrected score instead.
+
 ## Visualize binary entropy distribution
 
 ```{r}
