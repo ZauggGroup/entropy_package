@@ -8,17 +8,20 @@ run_entropy(
   seu,
   assay,
   neighbors = NULL,
-  neighbors_method = c("auto", "custom", "seurat"),
+  neighbors_method = NULL,
   neighbor_assay = assay,
   features = NULL,
   restrict_by = NULL,
   output_path = NULL,
+  block_dir = NULL,
+  block_genes = NULL,
   add_assay = TRUE,
   meta_name = NULL,
   k = 15,
   reduction = NULL,
   dims = 20,
   nfeatures = 0,
+  force_neighbors = FALSE,
   mode = c("counts", "binary"),
   chunk_method = c("none", "auto"),
   chunk_cells = 2000,
@@ -34,16 +37,20 @@ run_entropy(
 
 \item{assay}{Character. Name of the assay used for entropy calculation.}
 
-\item{neighbors}{Optional neighbor definition. If `neighbors_method = "custom"`,
-this should be a named list where `neighbors[[cell_name]]` returns a vector of
-neighbor cell names or indices. If `neighbors_method = "seurat"`, this should be
-a Seurat neighbor object. If `NULL` and `neighbors_method = "auto"`, neighbors
-are computed internally.}
+\item{neighbors}{Optional neighbor definition. Either a named list where
+`neighbors[[cell_name]]` gives that cell's neighbours as cell names or
+positions, or a Seurat `Neighbor` object, or `NULL` (default) to compute
+the graph internally. A supplied list must not contain the cell itself;
+it is rejected with a message if it does. A `Neighbor` object has its
+self entry removed automatically, so build it with `k.param = k + 1` if
+you want `k` neighbours left. Every cell must have the same number of
+distinct neighbours, empty lists aside. Numeric positions must be finite
+integers. [entropy_neighbors()] builds a valid list.}
 
-\item{neighbors_method}{Character. How to obtain neighbors. One of `"auto"`,
-`"custom"`, or `"seurat"`. `"auto"` computes neighbors inside the function.
-`"custom"` uses the user-provided neighbor list in `neighbors`. `"seurat"`
-uses the user-provided Seurat neighbor object in `neighbors`.}
+\item{neighbors_method}{Character or `NULL` (default). Leave it unset and
+it is read from `neighbors`: `NULL` gives `"auto"`, a list gives
+`"custom"`, a `Neighbor` object gives `"seurat"`. Passing it explicitly
+still works, and errors if it contradicts what was supplied.}
 
 \item{neighbor_assay}{Character. Assay to use for automatic neighbor computation
 when `neighbors_method = "auto"`. Defaults to `assay`.}
@@ -60,14 +67,28 @@ within groups rather than across them. For `neighbors_method = "auto"`,
 neighbors are recomputed within each group so every cell gets exactly `k`
 neighbors from its own group. Groups with fewer than `k + 1` cells are too
 small to provide `k` neighbors; their cells are treated as orphans and
-return entropy 0, with a warning. For `"custom"` or `"seurat"`, the provided
-neighbor graph is pruned to within-group neighbors instead. Cells with `NA`
-in the column, or with no within-group neighbors, return entropy 0. If
-`NULL` (default), neighbors are used as-is. Works in both normal and chunked
-mode.}
+return entropy 0, with a warning. For a supplied list or `Neighbor`
+object, the provided graph is pruned to within-group neighbors instead.
+Cells with `NA` in the column, or with no within-group neighbors, return
+entropy 0. If pruning leaves a non-empty entry with fewer than `k`
+neighbours, the call errors rather than comparing unequal neighbourhood
+sizes. For a global supplied graph, omit `neighbors` so the automatic path
+rebuilds `k` neighbours independently within each group. If `NULL`
+(default), neighbors are used as-is. Works in both normal and chunked mode.}
 
 \item{output_path}{Optional character string. If provided, saves the full entropy
-matrix to this file using `saveRDS()`.}
+matrix to this file using `saveRDS()`. It cannot be combined with
+`block_dir`, because doing so would reassemble the full matrix in memory.}
+
+\item{block_dir}{Optional directory for restartable gene-blocked output. If
+set, gene-level entropy is written in ordered `block_*.rds` files plus a
+`manifest.rds`, while only per-cell sums are retained in memory. Existing
+valid blocks are reused; a manifest mismatch is an error. Blocking cannot
+be combined with `add_assay = TRUE`.}
+
+\item{block_genes}{Optional positive integer giving genes per block. It is
+only valid when `block_dir` is set. If `NULL`, a size near 1 GB per block
+is chosen from the number of cells and entropy passes.}
 
 \item{add_assay}{Logical. If `TRUE` (default), adds the entropy matrix to the
 Seurat object as a new assay whose name ends in `"_entropy"`. With
@@ -80,9 +101,12 @@ Works independently of `add_assay`. If either `add_assay = TRUE` or
 `meta_name` is set, the function returns the Seurat object; if both are off,
 it returns a data frame of mean entropy per cell.}
 
-\item{k}{Integer. Number of nearest neighbors to use when computing neighbors
-internally. Must be at least 11, because the counts entropy estimator is
-undefined below 11 neighbors. Default is 15.}
+\item{k}{Integer. Number of nearest neighbors, excluding the cell itself,
+used when computing neighbors internally. Must be at least 11, because the
+counts entropy estimator is undefined below 11 neighbors. Default is 15.
+With a supplied `neighbors` list or `Neighbor` object, `k` is checked
+rather than used: every cell must have exactly `k` non-self neighbours.
+Leave `k` unset and it is taken from the list instead.}
 
 \item{reduction}{Character. Name of an existing dimensional reduction in
 `seu` to use for neighbor and chunk computation (e.g. `"lsi"` for ATAC).
@@ -97,6 +121,9 @@ Default is 20.}
 
 \item{nfeatures}{Integer. Number of variable features to select before PCA-based
 neighbor computation. Default is 0.}
+
+\item{force_neighbors}{Logical. If `TRUE`, ignore any cached neighbour graph
+on the object and recompute. Default `FALSE`.}
 
 \item{mode}{Character. Entropy mode. `"counts"` uses the count-based entropy estimator
 (BUB precomputed table). `"binary"` binarizes the assay counts (values > 0) and
@@ -135,7 +162,10 @@ If `add_assay = TRUE`, returns the modified Seurat object with a new
   also contains uncorrected and corrected per-cell means, a logical correction
   indicator, and depth-correction provenance. If both `add_assay = FALSE` and
   `depth_correct = FALSE`, a data frame of mean entropy values is returned
-  unless `meta_name` is supplied.
+  unless `meta_name` is supplied. In blocked mode the same return rules apply;
+  `block_dir` is recorded in `seu@misc$entropy_provenance` when a Seurat object
+  is returned, and in an `entropy_provenance` attribute on a returned data
+  frame.
 }
 \description{
 This function computes gene-level entropy across neighboring cells for a specified assay
@@ -143,6 +173,22 @@ in a Seurat object. It optionally saves the entropy matrix to file and/or adds i
 new assay whose name is the assay name followed by `"_entropy"`. When depth
 correction is requested, neighbours still come from the original data. Only
 the raw counts supplied to the entropy estimator are thinned.
+}
+\details{
+A cell is never its own neighbour. `k` always means `k` other cells,
+whichever way the graph is supplied.
+
+When the graph is computed here it is cached at
+`seu@misc$entropy_neighbors` and reused on the next call whose cells, `k`,
+`reduction`, `dims`, `neighbor_assay` and `restrict_by` all match. The cache
+survives only if the Seurat object is returned, so it is not kept when both
+`add_assay` and `meta_name` are off and `depth_correct` is `FALSE`. A
+`neighbors` argument supplied by the caller always wins over the cache.
+
+The dense gene-by-cell output is estimated before scoring. Above 2 GB the
+function warns and continues normally unless `block_dir` is set. With a
+block directory, genes are scored in restartable, ordered blocks and only
+per-cell sums remain in memory; use [entropy_read_genes()] to retrieve rows.
 }
 \examples{
 \dontrun{

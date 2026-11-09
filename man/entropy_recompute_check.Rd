@@ -49,7 +49,10 @@ the recomputed vector is captured directly.}
 \item{target_depth}{Optional explicit integer target depth.}
 
 \item{drop_below_target}{Logical. Drop cells below the target instead of
-retaining their original counts.}
+retaining their original counts. Dropping cells forces
+`recompute_neighbors = TRUE`, because a dropped cell cannot remain a
+neighbour of the cells that stayed. The embedding is not rebuilt, so the
+graph is rebuilt from the existing reduction on the retained cells.}
 
 \item{cells_per_group}{Number of cells retained per group. The default is
 the size of the smallest group.}

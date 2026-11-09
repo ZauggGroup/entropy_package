@@ -33,7 +33,9 @@ run_entropy_h5ad(
 (default) uses `X`. For `mode = "counts"` this must hold integer counts.}
 
 \item{neighbors}{Optional named list for `neighbors_method = "custom"`, where
-`neighbors[[cell_name]]` returns neighbor cell names or integer indices.}
+`neighbors[[cell_name]]` returns neighbor cell names or integer indices.
+A cell may not be its own neighbour, positions may not be repeated, and
+every cell must have the same number of neighbours, empty lists aside.}
 
 \item{neighbors_method}{Character. One of `"auto"` or `"custom"`. `"auto"`
 computes neighbors from the PCA embedding with `RANN::nn2`. `"custom"` uses
@@ -45,7 +47,9 @@ to. `NULL` (default) scores all features.}
 \item{restrict_by}{Optional character. Name of a column in `obs` to restrict
 neighbors within. Same semantics as `run_entropy()`: auto recomputes kNN
 within each group; groups smaller than `k + 1` return entropy 0; NA cells
-return entropy 0.}
+return entropy 0. A supplied graph is filtered within groups, and the call
+errors if this leaves unequal or sub-`k` non-empty neighbourhoods. For a
+global supplied graph, omit `neighbors` to rebuild within each group.}
 
 \item{pca_key}{Character. Key in `obsm` holding the embedding. Default
 `"X_pca"`.}
@@ -54,8 +58,10 @@ return entropy 0.}
 A single `n` means `1:n`. A vector is used as given (e.g. `2:20` skips
 component 1 for LSI/ATAC). Default 20.}
 
-\item{k}{Integer. Number of neighbors when computing internally. Must be at
-least 11 (counts estimator floor). Default 15.}
+\item{k}{Integer. Number of neighbors, excluding the cell itself, when
+computing internally. Must be at least 11 (counts estimator floor).
+Default 15. With a supplied `neighbors` list, `k` is checked against the
+list rather than used; leave it unset and it is read from the list.}
 
 \item{mode}{Character. `"counts"` (BUB) or `"binary"` (Bernoulli Shannon).}
 

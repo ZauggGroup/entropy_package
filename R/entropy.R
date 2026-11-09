@@ -6,17 +6,36 @@
 #' correction is requested, neighbours still come from the original data. Only
 #' the raw counts supplied to the entropy estimator are thinned.
 #'
+#' A cell is never its own neighbour. `k` always means `k` other cells,
+#' whichever way the graph is supplied.
+#'
+#' When the graph is computed here it is cached at
+#' `seu@misc$entropy_neighbors` and reused on the next call whose cells, `k`,
+#' `reduction`, `dims`, `neighbor_assay` and `restrict_by` all match. The cache
+#' survives only if the Seurat object is returned, so it is not kept when both
+#' `add_assay` and `meta_name` are off and `depth_correct` is `FALSE`. A
+#' `neighbors` argument supplied by the caller always wins over the cache.
+#'
+#' The dense gene-by-cell output is estimated before scoring. Above 2 GB the
+#' function warns and continues normally unless `block_dir` is set. With a
+#' block directory, genes are scored in restartable, ordered blocks and only
+#' per-cell sums remain in memory; use [entropy_read_genes()] to retrieve rows.
+#'
 #' @param seu A Seurat object.
 #' @param assay Character. Name of the assay used for entropy calculation.
-#' @param neighbors Optional neighbor definition. If `neighbors_method = "custom"`,
-#'   this should be a named list where `neighbors[[cell_name]]` returns a vector of
-#'   neighbor cell names or indices. If `neighbors_method = "seurat"`, this should be
-#'   a Seurat neighbor object. If `NULL` and `neighbors_method = "auto"`, neighbors
-#'   are computed internally.
-#' @param neighbors_method Character. How to obtain neighbors. One of `"auto"`,
-#'   `"custom"`, or `"seurat"`. `"auto"` computes neighbors inside the function.
-#'   `"custom"` uses the user-provided neighbor list in `neighbors`. `"seurat"`
-#'   uses the user-provided Seurat neighbor object in `neighbors`.
+#' @param neighbors Optional neighbor definition. Either a named list where
+#'   `neighbors[[cell_name]]` gives that cell's neighbours as cell names or
+#'   positions, or a Seurat `Neighbor` object, or `NULL` (default) to compute
+#'   the graph internally. A supplied list must not contain the cell itself;
+#'   it is rejected with a message if it does. A `Neighbor` object has its
+#'   self entry removed automatically, so build it with `k.param = k + 1` if
+#'   you want `k` neighbours left. Every cell must have the same number of
+#'   distinct neighbours, empty lists aside. Numeric positions must be finite
+#'   integers. [entropy_neighbors()] builds a valid list.
+#' @param neighbors_method Character or `NULL` (default). Leave it unset and
+#'   it is read from `neighbors`: `NULL` gives `"auto"`, a list gives
+#'   `"custom"`, a `Neighbor` object gives `"seurat"`. Passing it explicitly
+#'   still works, and errors if it contradicts what was supplied.
 #' @param neighbor_assay Character. Assay to use for automatic neighbor computation
 #'   when `neighbors_method = "auto"`. Defaults to `assay`.
 #' @param features Optional character vector of feature names (e.g. genes) to
@@ -30,13 +49,25 @@
 #'   neighbors are recomputed within each group so every cell gets exactly `k`
 #'   neighbors from its own group. Groups with fewer than `k + 1` cells are too
 #'   small to provide `k` neighbors; their cells are treated as orphans and
-#'   return entropy 0, with a warning. For `"custom"` or `"seurat"`, the provided
-#'   neighbor graph is pruned to within-group neighbors instead. Cells with `NA`
-#'   in the column, or with no within-group neighbors, return entropy 0. If
-#'   `NULL` (default), neighbors are used as-is. Works in both normal and chunked
-#'   mode.
+#'   return entropy 0, with a warning. For a supplied list or `Neighbor`
+#'   object, the provided graph is pruned to within-group neighbors instead.
+#'   Cells with `NA` in the column, or with no within-group neighbors, return
+#'   entropy 0. If pruning leaves a non-empty entry with fewer than `k`
+#'   neighbours, the call errors rather than comparing unequal neighbourhood
+#'   sizes. For a global supplied graph, omit `neighbors` so the automatic path
+#'   rebuilds `k` neighbours independently within each group. If `NULL`
+#'   (default), neighbors are used as-is. Works in both normal and chunked mode.
 #' @param output_path Optional character string. If provided, saves the full entropy
-#'   matrix to this file using `saveRDS()`.
+#'   matrix to this file using `saveRDS()`. It cannot be combined with
+#'   `block_dir`, because doing so would reassemble the full matrix in memory.
+#' @param block_dir Optional directory for restartable gene-blocked output. If
+#'   set, gene-level entropy is written in ordered `block_*.rds` files plus a
+#'   `manifest.rds`, while only per-cell sums are retained in memory. Existing
+#'   valid blocks are reused; a manifest mismatch is an error. Blocking cannot
+#'   be combined with `add_assay = TRUE`.
+#' @param block_genes Optional positive integer giving genes per block. It is
+#'   only valid when `block_dir` is set. If `NULL`, a size near 1 GB per block
+#'   is chosen from the number of cells and entropy passes.
 #' @param add_assay Logical. If `TRUE` (default), adds the entropy matrix to the
 #'   Seurat object as a new assay whose name ends in `"_entropy"`. With
 #'   `depth_correct = TRUE`, this assay contains only the depth-corrected entropy
@@ -46,9 +77,14 @@
 #'   Works independently of `add_assay`. If either `add_assay = TRUE` or
 #'   `meta_name` is set, the function returns the Seurat object; if both are off,
 #'   it returns a data frame of mean entropy per cell.
-#' @param k Integer. Number of nearest neighbors to use when computing neighbors
-#'   internally. Must be at least 11, because the counts entropy estimator is
-#'   undefined below 11 neighbors. Default is 15.
+#' @param k Integer. Number of nearest neighbors, excluding the cell itself,
+#'   used when computing neighbors internally. Must be at least 11, because the
+#'   counts entropy estimator is undefined below 11 neighbors. Default is 15.
+#'   With a supplied `neighbors` list or `Neighbor` object, `k` is checked
+#'   rather than used: every cell must have exactly `k` non-self neighbours.
+#'   Leave `k` unset and it is taken from the list instead.
+#' @param force_neighbors Logical. If `TRUE`, ignore any cached neighbour graph
+#'   on the object and recompute. Default `FALSE`.
 #' @param reduction Character. Name of an existing dimensional reduction in
 #'   `seu` to use for neighbor and chunk computation (e.g. `"lsi"` for ATAC).
 #'   If `NULL` (default), a PCA named `"pca_<neighbor_assay>"` is computed on
@@ -88,7 +124,10 @@
 #'   also contains uncorrected and corrected per-cell means, a logical correction
 #'   indicator, and depth-correction provenance. If both `add_assay = FALSE` and
 #'   `depth_correct = FALSE`, a data frame of mean entropy values is returned
-#'   unless `meta_name` is supplied.
+#'   unless `meta_name` is supplied. In blocked mode the same return rules apply;
+#'   `block_dir` is recorded in `seu@misc$entropy_provenance` when a Seurat object
+#'   is returned, and in an `entropy_provenance` attribute on a returned data
+#'   frame.
 #' @export
 #'
 #' @examples
@@ -100,17 +139,20 @@ run_entropy <- function(
     seu,
     assay,
     neighbors = NULL,
-    neighbors_method = c("auto", "custom", "seurat"),
+    neighbors_method = NULL,
     neighbor_assay = assay,
     features = NULL,
     restrict_by = NULL,
     output_path = NULL,
+    block_dir = NULL,
+    block_genes = NULL,
     add_assay = TRUE,
     meta_name = NULL,
     k = 15,
     reduction = NULL,
     dims = 20,
     nfeatures = 0,
+    force_neighbors = FALSE,
     mode = c("counts", "binary"),
     chunk_method = c("none", "auto"),
     chunk_cells = 2000,
@@ -122,9 +164,70 @@ run_entropy <- function(
 ){
 
 
-  neighbors_method <- match.arg(neighbors_method)
+  k_given <- !missing(k)
+
+  if (is.null(neighbors_method)) {
+    neighbors_method <- if (is.null(neighbors)) {
+      "auto"
+    } else if (inherits(neighbors, "Neighbor")) {
+      "seurat"
+    } else {
+      "custom"
+    }
+  } else {
+    neighbors_method <- match.arg(neighbors_method,
+                                  c("auto", "custom", "seurat"))
+    if (neighbors_method == "auto" && !is.null(neighbors)) {
+      stop(paste0(
+        "`neighbors_method = \"auto\"` computes the graph internally, but ",
+        "`neighbors` was also supplied. Drop one of the two."), call. = FALSE)
+    }
+    if (neighbors_method == "custom" && inherits(neighbors, "Neighbor")) {
+      stop(paste0(
+        "`neighbors` is a Seurat Neighbor object, not a list. Use ",
+        "`neighbors_method = \"seurat\"`, or leave `neighbors_method` unset ",
+        "and it is detected for you."), call. = FALSE)
+    }
+  }
+  if (length(force_neighbors) != 1L || !is.logical(force_neighbors) ||
+      is.na(force_neighbors)) {
+    stop("`force_neighbors` must be TRUE or FALSE.", call. = FALSE)
+  }
   mode <- match.arg(mode)
   chunk_method <- match.arg(chunk_method)
+
+  if (!is.null(block_dir) &&
+      (length(block_dir) != 1L || !is.character(block_dir) ||
+       is.na(block_dir) || !nzchar(block_dir))) {
+    stop("`block_dir` must be one non-empty directory path or `NULL`.",
+         call. = FALSE)
+  }
+  if (!is.null(block_genes) &&
+      (length(block_genes) != 1L || !is.numeric(block_genes) ||
+       !is.finite(block_genes) || block_genes != floor(block_genes) ||
+       block_genes < 1L)) {
+    stop("`block_genes` must be one positive integer or `NULL`.",
+         call. = FALSE)
+  }
+  if (is.null(block_dir) && !is.null(block_genes)) {
+    stop("`block_genes` requires `block_dir`; set a directory for block output.",
+         call. = FALSE)
+  }
+  if (!is.null(block_dir) && add_assay) {
+    stop(paste0(
+      "Gene blocking cannot be combined with `add_assay = TRUE`, because an ",
+      "entropy assay requires the full matrix in memory. Set `add_assay = FALSE` ",
+      "and read selected rows with `entropy_read_genes()`."
+    ), call. = FALSE)
+  }
+  if (!is.null(block_dir) && !is.null(output_path)) {
+    stop(paste0(
+      "`output_path` cannot be combined with `block_dir`, because it would ",
+      "reassemble the full entropy matrix. Use the block files and ",
+      "`entropy_read_genes()` instead."
+    ), call. = FALSE)
+  }
+  if (!is.null(block_genes)) block_genes <- as.integer(block_genes)
 
   if (length(depth_correct) != 1L || !is.logical(depth_correct) ||
       is.na(depth_correct)) {
@@ -259,13 +362,19 @@ run_entropy <- function(
   )
   ### cehck K
 
-  if (k < 11) {
+  if (length(k) != 1L || !is.numeric(k) || !is.finite(k) ||
+      k != floor(k)) {
+    stop("k must be a single integer.", call. = FALSE)
+  }
+  k <- as.integer(k)
+  if (k < 11L) {
     stop(sprintf("k must be at least 11 (got %d). The counts entropy estimator is undefined below 11 neighbors.", k))
   }
 
 
   ### check  feature
 
+  assay_features <- rownames(seu[[assay]])
   if (!is.null(features)) {
     if (!is.character(features)) {
       stop("`features` must be a character vector of feature names, not ",
@@ -273,7 +382,6 @@ run_entropy <- function(
     }
 
     features <- unique(features)
-    assay_features <- rownames(seu[[assay]])
     missing <- setdiff(features, assay_features)
 
     if (length(missing) == length(features)) {
@@ -296,6 +404,35 @@ run_entropy <- function(
       "Restricting entropy computation to %d of %d features in assay '%s'.",
       length(features), length(assay_features), assay
     )
+  }
+  scored_features <- if (is.null(features)) assay_features else features
+
+  .entropy_warn_large_output(
+    n_cells = ncol(seu), n_genes = length(scored_features),
+    depth_correct = depth_correct, block_dir = block_dir
+  )
+  if (!is.null(block_dir)) {
+    if (file.exists(block_dir) && !dir.exists(block_dir)) {
+      stop(sprintf("`block_dir` exists but is not a directory: '%s'.", block_dir),
+           call. = FALSE)
+    }
+    if (!dir.exists(block_dir) &&
+        !dir.create(block_dir, recursive = TRUE, showWarnings = FALSE)) {
+      stop(sprintf("Could not create `block_dir`: '%s'.", block_dir),
+           call. = FALSE)
+    }
+    block_dir <- normalizePath(block_dir, winslash = "/", mustWork = TRUE)
+    if (is.null(block_genes)) {
+      passes <- if (depth_correct) 2 else 1
+      block_genes <- max(1L, floor(
+        .entropy_block_target_bytes / (ncol(seu) * 8 * passes)
+      ))
+      block_genes <- min(as.integer(block_genes), length(scored_features))
+      futile.logger::flog.info(
+        "Using %d genes per block (approximately 1 GB of entropy output).",
+        block_genes
+      )
+    }
   }
 
 
@@ -476,6 +613,35 @@ run_entropy <- function(
   restrict_method <- neighbors_method
 
 
+  # Cache lookup. Only consulted when the graph would be computed here; a
+  # neighbour list handed in by the caller always wins.
+  nn_key <- NULL
+  if (neighbors_method == "auto") {
+    nn_key <- list(
+      cells = colnames(seu), k = k, reduction = reduction, dims = dims,
+      neighbor_assay = neighbor_assay,
+      restrict_by = if (is.null(restrict_by)) NA_character_ else restrict_by
+    )
+    cached <- seu@misc$entropy_neighbors
+    if (!force_neighbors && !is.null(cached) &&
+        identical(attr(cached, "signature"), nn_key)) {
+      neighbors <- unclass(cached)
+      attributes(neighbors) <- NULL
+      names(neighbors) <- names(cached)
+      neighbors_method <- "custom"
+      futile.logger::flog.info(
+        "Reusing cached neighbors from seu@misc$entropy_neighbors (built %s).",
+        format(attr(cached, "built"))
+      )
+    } else if (!is.null(cached) && !force_neighbors) {
+      futile.logger::flog.info(
+        "Cached neighbors do not match this call (%s). Recomputing.",
+        paste(.entropy_nn_diff(attr(cached, "signature"), nn_key),
+              collapse = ", ")
+      )
+    }
+  }
+
   if (neighbors_method == "auto") {
 
     futile.logger::flog.info(
@@ -484,28 +650,33 @@ run_entropy <- function(
     )
 
     if (is.null(restrict_by)) {
-      # ---- unrestricted: global kNN via FindNeighbors (as before) ----
-      seu_neighbor <- seu
-      Seurat::DefaultAssay(seu_neighbor) <- neighbor_assay
-      neighbor_name <- paste0("entropy_", neighbor_assay, "_nn")
+      # ---- unrestricted: global kNN on the embedding ----
+      # k + 1 then drop self, so k means k OTHER cells. The restricted branch
+      # below has always done this. The unrestricted branch used to include
+      # the cell itself as one of the k observations.
+      emb <- Seurat::Embeddings(seu[[reduction]])[, dims, drop = FALSE]
+      if (nrow(emb) <= k) {
+        stop(sprintf(paste0(
+          "Cannot compute %d neighbors from only %d cells: global automatic ",
+          "neighboring requires at least k + 1 = %d cells."),
+          k, nrow(emb), k + 1L), call. = FALSE)
+      }
 
-      seu_neighbor <- suppressMessages(Seurat::FindNeighbors(
-        seu_neighbor,
-        reduction = reduction,
-        dims = dims,
+      nn <- suppressMessages(Seurat::FindNeighbors(
+        emb,
+        k.param = k + 1L,
         return.neighbor = TRUE,
-        k.param = k,
-        graph.name = neighbor_name,
         verbose = FALSE
       ))
 
-      if (!neighbor_name %in% names(seu_neighbor@neighbors)) {
-        stop("Computed Neighbor object '", neighbor_name,
-             "' was not found in the Seurat object.")
-      }
+      neighbors <- .entropy_nn_trim(.entropy_nn_drop_self(nn@nn.idx), k)
+      names(neighbors) <- colnames(seu)
+      neighbors_method <- "custom"
 
-      neighbors <- seu_neighbor@neighbors[[neighbor_name]]
-      neighbors_method <- "seurat"
+      futile.logger::flog.info(
+        "Computed %d non-self neighbors per cell on reduction '%s' (dims %d:%d).",
+        k, reduction, min(dims), max(dims)
+      )
 
     } else {
       # restricted: recompute kNN WITHIN each group, build a named list
@@ -541,11 +712,12 @@ run_entropy <- function(
         }
 
         nn_g <- RANN::nn2(emb[g_cells, , drop = FALSE], k = k + 1L)$nn.idx
-        # column 1 is self; map local row/col indices back to global cell indices
+        # Remove self by identity (ties mean it need not be column 1), then map
+        # local row/column indices back to global cell indices.
         global_idx <- match(g_cells, colnames(seu))
         for (r in seq_along(g_cells)) {
           nbr_row    <- nn_g[r, ]
-          local_nbrs <- nbr_row[nbr_row != r]
+          local_nbrs <- utils::head(nbr_row[nbr_row != r], k)
           neighbors[[g_cells[r]]] <- global_idx[local_nbrs]
         }
       }
@@ -563,52 +735,52 @@ run_entropy <- function(
         avg_nn, n_zero
       )
     }
-  } else if (neighbors_method == "custom") {
+
+    # Validate the graph before it becomes estimator input or enters the cache.
+    .entropy_nn_check(neighbors, colnames(seu), k, k_given = TRUE)
+
+    nn_store <- neighbors
+    attributes(nn_store) <- NULL
+    names(nn_store) <- colnames(seu)
+    attr(nn_store, "signature") <- nn_key
+    attr(nn_store, "source") <- "computed"
+    attr(nn_store, "built") <- Sys.time()
+    class(nn_store) <- "entropy_neighbors"
+    seu@misc$entropy_neighbors <- nn_store
+
+  } else if (restrict_method != "auto") {
+    # Custom list or Seurat Neighbor object, normalised to one list form.
+    # Self is never a neighbour: a Neighbor object has its self entry
+    # dropped, a user list that contains self is rejected.
     if (is.null(neighbors)) {
-      stop("`neighbors` must be provided when neighbors_method = 'custom'.")
+      stop(sprintf("`neighbors` must be provided when neighbors_method = '%s'.",
+                   neighbors_method), call. = FALSE)
     }
-    if (!is.list(neighbors) || is.null(names(neighbors))) {
-      stop(
-        "`neighbors` must be a named list where neighbors[[cell_name]] ",
-        "returns a vector of neighbor cell names or indices."
-      )
-    }
-
-
-
-
-    cell_names <- colnames(seu)
-
-    missing_cells <- setdiff(cell_names, names(neighbors))
-
-    if (length(missing_cells) > 0) {
-      stop(
-        "The custom neighbors list is missing entries for ",
-        length(missing_cells), " cells.\n",
-        "Each cell must appear in names(neighbors), even if it has no neighbors.\n",
-        "Example structure:\n",
-        "neighbors[['cell1']] -> c('cell2','cell3',...)"
-      )
-    }
-    futile.logger::flog.info("Using user-provided custom neighbors.")
-
-  } else if (neighbors_method == "seurat") {
-    if (is.null(neighbors)) {
-      stop("`neighbors` must be provided when neighbors_method = 'seurat'.")
+    if (neighbors_method == "seurat" && !inherits(neighbors, "Neighbor")) {
+      stop(paste0(
+        "For neighbors_method = 'seurat', `neighbors` must be a Seurat Neighbor ",
+        "object (e.g. Seurat::FindNeighbors(..., return.neighbor = TRUE))."),
+        call. = FALSE)
     }
 
-    if (!inherits(neighbors, "Neighbor")) {
-      stop(
-        "For neighbors_method = 'seurat', `neighbors` must be a Seurat Neighbor object ",
-        "(e.g. the result of Seurat::FindNeighbors(..., return.neighbor = TRUE))."
-      )
+    neighbors <- .entropy_nn_normalise(neighbors, colnames(seu), k)
+    k_resolved <- .entropy_nn_check(neighbors, colnames(seu), k, k_given)
+    if (!k_given) {
+      futile.logger::flog.info(
+        "k not supplied; set to %d from the neighbour list.", k_resolved)
+      k <- k_resolved
+      if (k < 11L) {
+        stop(sprintf(paste0(
+          "The supplied neighbour list gives k = %d. The counts entropy ",
+          "estimator is undefined below 11 neighbors."), k), call. = FALSE)
+      }
     }
+    neighbors_method <- "custom"
 
-    if (!all(colnames(seu) %in% neighbors@cell.names)) {
-      stop("Cell names in Seurat object do not match the provided Seurat neighbor object.")
-    }
-
-    futile.logger::flog.info("Using user-provided Seurat neighbor object.")
+    futile.logger::flog.info(
+      "Using user-provided neighbors (%s): %d non-self per cell, %d cells with 0.",
+      restrict_method, k, sum(lengths(neighbors) == 0L)
+    )
   }
 
 
@@ -630,7 +802,7 @@ run_entropy <- function(
 
     for (i in seq_along(all_cells)) {
       cell   <- all_cells[i]
-      nn_idx <- get_neighbors(cell, seu, neighbors, restrict_method)
+      nn_idx <- get_neighbors(cell, seu, neighbors)
       n_before[i] <- length(nn_idx)
 
       cell_grp <- grp[cell]
@@ -645,41 +817,15 @@ run_entropy <- function(
     neighbors <- filtered
     neighbors_method <- "custom"
 
+    # Filtering a caller-supplied graph must not silently create different
+    # neighbourhood sizes. Empty entries remain valid for cells with no
+    # within-group neighbours, but every non-empty entry must still contain k.
+    .entropy_nn_check_restricted(neighbors, all_cells, k)
+
     futile.logger::flog.info(
       "Within-group filtering: mean neighbors %.1f -> %.1f; %d cells now with 0 neighbors.",
       mean(n_before), mean(n_after), sum(n_after == 0)
     )
-  }
-
-
-  #### Orphan cells with < 11 neighbors (custom / seurat only; counts estimator floor)
-  if (restrict_method %in% c("custom", "seurat")) {
-
-    all_cells <- colnames(seu)
-    pruned    <- vector("list", length(all_cells))
-    names(pruned) <- all_cells
-
-    n_orphaned <- 0L
-    for (i in seq_along(all_cells)) {
-      cell   <- all_cells[i]
-      nn_idx <- get_neighbors(cell, seu, neighbors, neighbors_method)
-      if (length(nn_idx) < 11L) {
-        pruned[[cell]] <- integer(0)
-        if (length(nn_idx) > 0L) n_orphaned <- n_orphaned + 1L
-      } else {
-        pruned[[cell]] <- nn_idx
-      }
-    }
-
-    neighbors <- pruned
-    neighbors_method <- "custom"
-
-    if (n_orphaned > 0L) {
-      futile.logger::flog.warn(
-        "%d of %d cells have fewer than 11 neighbors and will return entropy 0 (counts estimator requires >= 11).",
-        n_orphaned, length(all_cells)
-      )
-    }
   }
 
   ###################### NN finish
@@ -692,44 +838,10 @@ run_entropy <- function(
   }
 
 
-  mat <- Seurat::GetAssayData(seu, assay = assay, layer = "counts")
-
-  if (!is.null(features)) {
-    mat <- mat[features, , drop = FALSE]
-  }
-
-  if (mode == "binary") {
-    futile.logger::flog.info("Binarizing matrix (counts > 0) for binary entropy.")
-    mat_bin <- Matrix::Matrix(mat > 0, sparse = TRUE)
-  }
-
-  if (depth_correct) {
-    depth_corrected_mat <- depth_corrected_full
-    if (!is.null(features)) {
-      depth_corrected_mat <- depth_corrected_mat[features, , drop = FALSE]
-    }
-    if (mode == "binary") {
-      depth_corrected_mat_bin <- Matrix::Matrix(
-        depth_corrected_mat > 0, sparse = TRUE
-      )
-    }
-  }
-
-  # Get all cell names
+  full_mat <- Seurat::GetAssayData(seu, assay = assay, layer = "counts")
   cell_names <- colnames(seu)
   n_cells <- length(cell_names)
 
-  # Initialize the progress bar
-  pb <- progress::progress_bar$new(
-    format = "  Processing [:bar] :percent | :current/:total cells",
-    total = n_cells,
-    clear = FALSE,
-    width = 60
-  )
-
-  #.data_loaded <<- FALSE
-
-  ## prepare matrix
   if (mode == "counts") {
     futile.logger::flog.info("Reading the precomputed table (counts mode)")
     .entropy_cache$precomputed_bub <- readRDS(system.file(
@@ -750,173 +862,130 @@ run_entropy <- function(
   if (chunk_method == "auto") {
     futile.logger::flog.info("Preparing chunks for chunked computation.")
     chunks <- prepare_chunks(seu, chunk_cells = chunk_cells, reduction = reduction, dims = dims, neighbor_assay = neighbor_assay)
-  }
-
-  # Apply with progress
-  entropy_matrix <- matrix(
-    0,
-    nrow     = nrow(mat),
-    ncol     = n_cells,
-    dimnames = list(rownames(mat), cell_names)
-  )
-
-  if (chunk_method == "none") {
-    for (i in seq_along(cell_names)) {
-      cell_name <- cell_names[i]
-      if (i %% 100 == 0) pb$tick(100)
-      nn_idx <- get_neighbors(cell_name, seu, neighbors, neighbors_method)
-      if (mode == "binary") {
-        entropy_matrix[, cell_name] <- calculate_entropy_for_cell_binary_fast(
-          cell_name = cell_name, mat_bin = mat_bin, neighbors_idx = nn_idx)
-      } else {
-        entropy_matrix[, cell_name] <- calculate_entropy_for_cell(
-          cell_name = cell_name, mat = mat, neighbors_idx = nn_idx)
-      }
-    }
-    if (n_cells %% 100 != 0) pb$tick(n_cells %% 100)
   } else {
-    run_chunk <- function(chunk_cell_names) {
-      all_nn_idx <- unique(unlist(lapply(chunk_cell_names, function(cell) {
-        get_neighbors(cell, seu, neighbors, neighbors_method)
-      })))
-      if (mode == "binary") {
-        mat_chunk <- mat_bin[, all_nn_idx, drop = FALSE]
-      } else {
-        mat_chunk <- mat[, all_nn_idx, drop = FALSE]
-      }
-      idx_remap <- stats::setNames(seq_along(all_nn_idx), all_nn_idx)
-      chunk_matrix <- matrix(
-        0,
-        nrow     = nrow(mat),
-        ncol     = length(chunk_cell_names),
-        dimnames = list(rownames(mat), chunk_cell_names)
-      )
-      for (cell_name in chunk_cell_names) {
-        nn_idx_full  <- get_neighbors(cell_name, seu, neighbors, neighbors_method)
-        nn_idx_chunk <- as.integer(idx_remap[as.character(nn_idx_full)])
-        if (mode == "binary") {
-          chunk_matrix[, cell_name] <- calculate_entropy_for_cell_binary_fast(
-            cell_name = cell_name, mat_bin = mat_chunk, neighbors_idx = nn_idx_chunk)
-        } else {
-          chunk_matrix[, cell_name] <- calculate_entropy_for_cell(
-            cell_name = cell_name, mat = mat_chunk, neighbors_idx = nn_idx_chunk)
-        }
-      }
-      chunk_matrix
-    }
-    if (parallelize) {
-      futile.logger::flog.info("Running chunks in parallel with %d cores.", n_cores)
-      chunk_results <- parallel::mclapply(chunks, run_chunk, mc.cores = n_cores)
+    chunks <- NULL
+  }
+
+  if (is.null(block_dir)) {
+    mat <- full_mat[scored_features, , drop = FALSE]
+    mat_bin <- if (mode == "binary") {
+      futile.logger::flog.info("Binarizing matrix (counts > 0) for binary entropy.")
+      Matrix::Matrix(mat > 0, sparse = TRUE)
     } else {
-      futile.logger::flog.info("Running chunks sequentially.")
-      chunk_results <- lapply(chunks, function(chunk_cell_names) {
-        pb$tick(length(chunk_cell_names))
-        run_chunk(chunk_cell_names)
-      })
+      NULL
     }
-
-    for (i in seq_along(chunk_results)) {
-      chunk_cell_names <- colnames(chunk_results[[i]])
-      entropy_matrix[, chunk_cell_names] <- chunk_results[[i]]
-    }
-  }
-
-  means <- colMeans(entropy_matrix)
-  if (!is.null(output_path)) {
-    saveRDS(entropy_matrix, output_path)
-    futile.logger::flog.info("Entropy matrix saved to: %s", output_path)
-  }
-
-  if (depth_correct) {
-    # The uncorrected dense matrix is not used after its means and optional
-    # output are written. Release it before allocating the corrected matrix.
-    rm(entropy_matrix)
-    gc()
-
-    # TODO: Roughly 90 lines below duplicate the uncorrected chunking and
-    # parallel loop. Apply every future entropy-loop change in both places.
-    depth_corrected_entropy_matrix <- matrix(
-      0,
-      nrow = nrow(depth_corrected_mat),
-      ncol = n_cells,
-      dimnames = list(rownames(depth_corrected_mat), cell_names)
+    entropy_matrix <- .entropy_compute_matrix(
+      mat, mat_bin, mode, cell_names, neighbors, chunk_method, chunks,
+      parallelize, n_cores
     )
+    means <- colMeans(entropy_matrix)
+    if (!is.null(output_path)) {
+      saveRDS(entropy_matrix, output_path)
+      futile.logger::flog.info("Entropy matrix saved to: %s", output_path)
+    }
 
-    if (chunk_method == "none") {
-      for (i in seq_along(cell_names)) {
-        cell_name <- cell_names[i]
-        nn_idx <- get_neighbors(cell_name, seu, neighbors, neighbors_method)
-        if (mode == "binary") {
-          depth_corrected_entropy_matrix[, cell_name] <-
-            calculate_entropy_for_cell_binary_fast(
-              cell_name = cell_name,
-              mat_bin = depth_corrected_mat_bin,
-              neighbors_idx = nn_idx
-            )
-        } else {
-          depth_corrected_entropy_matrix[, cell_name] <-
-            calculate_entropy_for_cell(
-              cell_name = cell_name,
-              mat = depth_corrected_mat,
-              neighbors_idx = nn_idx
-            )
-        }
+    if (depth_correct) {
+      rm(entropy_matrix)
+      gc()
+      depth_corrected_mat <- depth_corrected_full[
+        scored_features, , drop = FALSE
+      ]
+      depth_corrected_mat_bin <- if (mode == "binary") {
+        Matrix::Matrix(depth_corrected_mat > 0, sparse = TRUE)
+      } else {
+        NULL
       }
-    } else {
-      run_depth_corrected_chunk <- function(chunk_cell_names) {
-        all_nn_idx <- unique(unlist(lapply(chunk_cell_names, function(cell) {
-          get_neighbors(cell, seu, neighbors, neighbors_method)
-        })))
-        if (mode == "binary") {
-          mat_chunk <- depth_corrected_mat_bin[, all_nn_idx, drop = FALSE]
-        } else {
-          mat_chunk <- depth_corrected_mat[, all_nn_idx, drop = FALSE]
-        }
-        idx_remap <- stats::setNames(seq_along(all_nn_idx), all_nn_idx)
-        chunk_matrix <- matrix(
-          0,
-          nrow = nrow(depth_corrected_mat),
-          ncol = length(chunk_cell_names),
-          dimnames = list(rownames(depth_corrected_mat), chunk_cell_names)
+      depth_corrected_entropy_matrix <- .entropy_compute_matrix(
+        depth_corrected_mat, depth_corrected_mat_bin, mode, cell_names,
+        neighbors, chunk_method, chunks, parallelize, n_cores
+      )
+      depth_corrected_means <- colMeans(depth_corrected_entropy_matrix)
+    }
+  } else {
+    prepared <- .entropy_prepare_manifest(
+      block_dir = block_dir, cells = cell_names, genes = scored_features,
+      block_genes = block_genes, k = k, assay = assay, mode = mode,
+      reduction = reduction, dims = dims, restrict_by = restrict_by,
+      depth_correct = depth_correct, target_depth = depth_target
+    )
+    entropy_sums <- stats::setNames(numeric(n_cells), cell_names)
+    if (depth_correct) {
+      depth_corrected_sums <- stats::setNames(numeric(n_cells), cell_names)
+    }
+
+    for (block_index in seq_along(prepared$indices)) {
+      genes_i <- scored_features[prepared$indices[[block_index]]]
+      block_path <- file.path(
+        block_dir, prepared$manifest$blocks$file[[block_index]]
+      )
+      if (file.exists(block_path)) {
+        block <- tryCatch(
+          readRDS(block_path),
+          error = function(error) stop(sprintf(
+            "Cannot read entropy block file '%s': %s",
+            block_path, conditionMessage(error)
+          ), call. = FALSE)
         )
-        for (cell_name in chunk_cell_names) {
-          nn_idx_full <- get_neighbors(
-            cell_name, seu, neighbors, neighbors_method
-          )
-          nn_idx_chunk <- as.integer(idx_remap[as.character(nn_idx_full)])
-          if (mode == "binary") {
-            chunk_matrix[, cell_name] <-
-              calculate_entropy_for_cell_binary_fast(
-                cell_name = cell_name,
-                mat_bin = mat_chunk,
-                neighbors_idx = nn_idx_chunk
-              )
-          } else {
-            chunk_matrix[, cell_name] <- calculate_entropy_for_cell(
-              cell_name = cell_name,
-              mat = mat_chunk,
-              neighbors_idx = nn_idx_chunk
-            )
-          }
-        }
-        chunk_matrix
-      }
-      if (parallelize) {
-        depth_corrected_chunk_results <- parallel::mclapply(
-          chunks, run_depth_corrected_chunk, mc.cores = n_cores
+        .entropy_validate_block(
+          block, prepared$manifest, block_index, block_path
+        )
+        futile.logger::flog.info(
+          "Reusing gene block %d/%d (%d genes).",
+          block_index, length(prepared$indices), length(genes_i)
         )
       } else {
-        depth_corrected_chunk_results <- lapply(
-          chunks, run_depth_corrected_chunk
+        futile.logger::flog.info(
+          "Computing gene block %d/%d (%d genes).",
+          block_index, length(prepared$indices), length(genes_i)
         )
+        mat_i <- full_mat[genes_i, , drop = FALSE]
+        mat_bin_i <- if (mode == "binary") {
+          Matrix::Matrix(mat_i > 0, sparse = TRUE)
+        } else {
+          NULL
+        }
+        entropy_i <- .entropy_compute_matrix(
+          mat_i, mat_bin_i, mode, cell_names, neighbors, chunk_method, chunks,
+          parallelize, n_cores
+        )
+        corrected_i <- NULL
+        if (depth_correct) {
+          corrected_mat_i <- depth_corrected_full[
+            genes_i, , drop = FALSE
+          ]
+          corrected_bin_i <- if (mode == "binary") {
+            Matrix::Matrix(corrected_mat_i > 0, sparse = TRUE)
+          } else {
+            NULL
+          }
+          corrected_i <- .entropy_compute_matrix(
+            corrected_mat_i, corrected_bin_i, mode, cell_names, neighbors,
+            chunk_method, chunks, parallelize, n_cores
+          )
+        }
+        block <- list(
+          block = as.integer(block_index), genes = genes_i,
+          cells = cell_names, entropy = entropy_i,
+          entropy_depth_corrected = corrected_i
+        )
+        .entropy_save_rds_atomic(block, block_path)
+        rm(mat_i, mat_bin_i, entropy_i, corrected_i)
+        if (exists("corrected_mat_i", inherits = FALSE)) {
+          rm(corrected_mat_i, corrected_bin_i)
+        }
       }
-      for (i in seq_along(depth_corrected_chunk_results)) {
-        chunk_cell_names <- colnames(depth_corrected_chunk_results[[i]])
-        depth_corrected_entropy_matrix[, chunk_cell_names] <-
-          depth_corrected_chunk_results[[i]]
+      entropy_sums <- entropy_sums + colSums(block$entropy)
+      if (depth_correct) {
+        depth_corrected_sums <- depth_corrected_sums +
+          colSums(block$entropy_depth_corrected)
       }
+      rm(block)
+      gc(verbose = FALSE)
     }
-    depth_corrected_means <- colMeans(depth_corrected_entropy_matrix)
+    means <- entropy_sums / length(scored_features)
+    if (depth_correct) {
+      depth_corrected_means <- depth_corrected_sums / length(scored_features)
+    }
   }
 
   if (add_assay) {
@@ -975,8 +1044,9 @@ run_entropy <- function(
     )
   }
 
-  if (add_assay || !is.null(meta_name) || depth_correct) {
-    seu@misc$entropy_provenance <- list(
+  if (add_assay || !is.null(meta_name) || depth_correct ||
+      !is.null(block_dir)) {
+    entropy_provenance <- list(
       k = k,
       assay = assay,
       mode = mode,
@@ -989,13 +1059,21 @@ run_entropy <- function(
       n_cells_below_target = n_cells_below_target,
       n_cells_corrected = n_cells_corrected
     )
+    if (!is.null(block_dir)) {
+      entropy_provenance$block_dir <- block_dir
+    }
+    seu@misc$entropy_provenance <- entropy_provenance
   }
 
   # return rule: object if we modified it (assay or meta), else the data frame
   if (add_assay || !is.null(meta_name) || depth_correct) {
     return(seu)
   } else {
-    return(as.data.frame(means))
+    result <- as.data.frame(means)
+    if (!is.null(block_dir)) {
+      attr(result, "entropy_provenance") <- entropy_provenance
+    }
+    return(result)
   }
 
 }

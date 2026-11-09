@@ -2,25 +2,24 @@
 % Please edit documentation in R/Internal_prepration.R
 \name{get_neighbors}
 \alias{get_neighbors}
-\title{Get neighbor indices for a cell from a custom list or Seurat Neighbor object}
+\title{Get neighbor indices for a cell}
 \usage{
-get_neighbors(cell_name, seu, neighbors, neighbors_method)
+get_neighbors(cell_name, seu, neighbors)
 }
 \arguments{
 \item{cell_name}{Cell name (character).}
 
-\item{seu}{Seurat object.}
+\item{seu}{Seurat object, used only to resolve cell names to positions.}
 
-\item{neighbors}{Neighbor definition. Either a named list where
-`neighbors[[cell_name]]` returns a vector of neighbor cell names or indices,
-or a Seurat Neighbor object.}
-
-\item{neighbors_method}{Character. One of `"custom"` or `"seurat"`.}
+\item{neighbors}{Named list, `neighbors[[cell_name]]` giving neighbour
+positions (or cell names).}
 }
 \value{
 Integer vector of neighbor indices.
 }
 \description{
-Get neighbor indices for a cell from a custom list or Seurat Neighbor object
+By the time this is called, `neighbors` is always a named list of integer
+positions: `run_entropy()` converts a Seurat `Neighbor` object to that form
+on entry and validates it once, so there is nothing to re-check per cell.
 }
 \keyword{internal}

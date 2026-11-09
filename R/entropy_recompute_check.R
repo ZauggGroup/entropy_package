@@ -38,7 +38,10 @@
 #' @param depth_quantile Quantile used to choose the downsampling target.
 #' @param target_depth Optional explicit integer target depth.
 #' @param drop_below_target Logical. Drop cells below the target instead of
-#'   retaining their original counts.
+#'   retaining their original counts. Dropping cells forces
+#'   `recompute_neighbors = TRUE`, because a dropped cell cannot remain a
+#'   neighbour of the cells that stayed. The embedding is not rebuilt, so the
+#'   graph is rebuilt from the existing reduction on the retained cells.
 #' @param cells_per_group Number of cells retained per group. The default is
 #'   the size of the smallest group.
 #' @param recompute_neighbors Logical or `NULL`. `NULL` uses the mechanism's
@@ -187,6 +190,18 @@ entropy_recompute_check <- function(
         "`recompute_neighbors = FALSE` is not valid for `subsample_cells`; removed cells cannot remain neighbours.",
         call. = FALSE
       )
+    }
+    recompute_neighbors <- TRUE
+  } else if (mechanism == "downsample_counts" && isTRUE(drop_below_target)) {
+    # Dropping cells below the target IS cell subsampling: the removed cells
+    # cannot remain neighbours of the cells that stayed. Keeping the original
+    # graph and intersecting it leaves each cell with a different number of
+    # neighbours, which makes entropy values incomparable between cells.
+    if (identical(recompute_neighbors, FALSE)) {
+      stop(paste0(
+        "`recompute_neighbors = FALSE` is not valid with ",
+        "`drop_below_target = TRUE`; dropped cells cannot remain neighbours."),
+        call. = FALSE)
     }
     recompute_neighbors <- TRUE
   } else if (is.null(recompute_neighbors)) {
@@ -357,7 +372,8 @@ entropy_recompute_check <- function(
       neighbors = repeat_neighbors,
       recompute_neighbors = recompute_neighbors,
       features = repeat_features,
-      rebuild_reduction = recompute_neighbors && mechanism != "subsample_cells"
+      rebuild_reduction = recompute_neighbors &&
+        !(mechanism %in% c("subsample_cells", "downsample_counts"))
     )
     entropy_before <- entropy[retained]
     entropy_after <- recomputed[retained]

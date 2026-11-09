@@ -1,50 +1,26 @@
-#' Get neighbor indices for a cell from a custom list or Seurat Neighbor object
+#' Get neighbor indices for a cell
+#'
+#' By the time this is called, `neighbors` is always a named list of integer
+#' positions: `run_entropy()` converts a Seurat `Neighbor` object to that form
+#' on entry and validates it once, so there is nothing to re-check per cell.
 #'
 #' @param cell_name Cell name (character).
-#' @param seu Seurat object.
-#' @param neighbors Neighbor definition. Either a named list where
-#'   `neighbors[[cell_name]]` returns a vector of neighbor cell names or indices,
-#'   or a Seurat Neighbor object.
-#' @param neighbors_method Character. One of `"custom"` or `"seurat"`.
+#' @param seu Seurat object, used only to resolve cell names to positions.
+#' @param neighbors Named list, `neighbors[[cell_name]]` giving neighbour
+#'   positions (or cell names).
 #' @return Integer vector of neighbor indices.
 #' @keywords internal
-get_neighbors <- function(cell_name, seu, neighbors, neighbors_method) {
-  if (neighbors_method == "custom") {
-    cell_neighbors <- neighbors[[cell_name]]
-
-    if (length(cell_neighbors) == 0) {
-      return(integer(0))
+get_neighbors <- function(cell_name, seu, neighbors) {
+  idx <- neighbors[[cell_name]]
+  if (length(idx) == 0L) return(integer(0))
+  if (is.character(idx)) {
+    idx <- match(idx, colnames(seu))
+    if (anyNA(idx)) {
+      stop("Some neighbor cell names for cell '", cell_name,
+           "' were not found in the Seurat object.", call. = FALSE)
     }
-
-    if (is.character(cell_neighbors)) {
-      idx <- match(cell_neighbors, colnames(seu))
-
-      if (any(is.na(idx))) {
-        stop(
-          "Some neighbor cell names for cell '", cell_name,
-          "' were not found in the Seurat object."
-        )
-      }
-      return(idx)
-    }
-    idx <- as.integer(cell_neighbors)
-
-    if (any(is.na(idx)) || any(idx < 1) || any(idx > ncol(seu))) {
-      stop(
-        "Some neighbor indices for cell '", cell_name,
-        "' are invalid. Indices must be between 1 and the number of cells in the Seurat object."
-      )
-    }
-
-    return(idx)
   }
-
-  if (neighbors_method == "seurat") {
-    cell_idx <- match(cell_name, colnames(seu))
-    return(neighbors@nn.idx[cell_idx, ])
-  }
-
-  stop("Unsupported neighbors_method in get_neighbors(): ", neighbors_method)
+  as.integer(idx)
 }
 
 
@@ -269,13 +245,12 @@ calculate_entropy_for_cell_old <- function(cell_name, mat, seu, nn_list = NULL ,
 #' @param mat_bin Matrix. Binary matrix (features x cells), with values 0 or 1.
 #' @param seu Seurat object.
 #' @param neighbors Neighbor definition. Either a named list or a Seurat Neighbor object.
-#' @param neighbors_method Character. One of `"custom"` or `"seurat"`.
 #'
 #' @return A numeric vector of entropy values for each feature.
 #' @keywords internal
-calculate_entropy_for_cell_binary <- function(cell_name, mat_bin, seu, neighbors, neighbors_method) {
+calculate_entropy_for_cell_binary <- function(cell_name, mat_bin, seu, neighbors) {
 
-  neighbors_idx <- get_neighbors(cell_name, seu, neighbors, neighbors_method)
+  neighbors_idx <- get_neighbors(cell_name, seu, neighbors)
 
   if (length(neighbors_idx) == 0) {
     ent <- rep(0, nrow(mat_bin))

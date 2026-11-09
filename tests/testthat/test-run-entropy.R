@@ -19,7 +19,10 @@ test_that("depth correction disabled preserves released run_entropy behaviour", 
     pbmc_small,
     assay = reference$parameters$assay,
     mode = reference$parameters$mode,
-    k = reference$parameters$k,
+    # k must match the list length now. The reference was generated with a
+    # 12-neighbour list, and k was unused on the custom path back then, so
+    # this reproduces the same numbers.
+    k = length(neighbors[[1L]]),
     neighbors = neighbors,
     neighbors_method = reference$parameters$neighbors_method,
     add_assay = reference$parameters$add_assay,
@@ -62,7 +65,7 @@ run_depth_correction_fixture <- function(fixture, ...) {
     assay = "RNA",
     neighbors = fixture$neighbors,
     neighbors_method = "custom",
-    k = 11,
+    k = 12,
     mode = "counts",
     add_assay = FALSE,
     depth_correct = TRUE,
@@ -78,7 +81,7 @@ test_that("depth correction adds expected metadata and keeps original means", {
   fixture <- make_depth_correction_fixture()
   original <- run_entropy(
     fixture$seu, assay = "RNA", neighbors = fixture$neighbors,
-    neighbors_method = "custom", k = 11, mode = "counts",
+    neighbors_method = "custom", k = 12, mode = "counts",
     add_assay = FALSE, meta_name = "mean_entropy_RNA"
   )
   set.seed(10)
@@ -252,7 +255,7 @@ test_that("run_entropy writes provenance on corrected and uncorrected paths", {
   fixture <- make_depth_correction_fixture()
   uncorrected <- run_entropy(
     fixture$seu, assay = "RNA", neighbors = fixture$neighbors,
-    neighbors_method = "custom", k = 11, mode = "counts",
+    neighbors_method = "custom", k = 12, mode = "counts",
     add_assay = FALSE, meta_name = "entropy"
   )
   set.seed(60)
@@ -309,6 +312,14 @@ test_that("run_entropy rejects k < 11", {
     run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 5),
     "at least 11"
   )
+  expect_error(
+    run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 11.5),
+    "single integer"
+  )
+  expect_error(
+    run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = NA_real_),
+    "single integer"
+  )
 })
 
 test_that("restrict_by keeps neighbors within group", {
@@ -353,30 +364,285 @@ test_that("restrict_by orphans groups smaller than k+1 (entropy 0)", {
 
 
 
-test_that("custom neighbors with < 11 neighbors are orphaned (entropy 0)", {
+test_that("custom neighbors of unequal size are rejected", {
   skip_if_not_installed("Seurat")
   library(Seurat)
   data("pbmc_small")
 
   cells <- colnames(pbmc_small)
-
-  # build a custom neighbor list: every cell gets 12 neighbors,
-  # except cell 1 which deliberately gets only 5 (< 11)
   nn <- lapply(seq_along(cells), function(i) {
-    if (i == 1) {
-      setdiff(cells, cells[1])[1:5]      # only 5 neighbors
-    } else {
-      setdiff(cells, cells[i])[1:12]     # 12 neighbors
-    }
+    if (i == 1) setdiff(cells, cells[1])[1:5] else setdiff(cells, cells[i])[1:12]
   })
   names(nn) <- cells
 
-  r <- run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 11,
-                   neighbors = nn, neighbors_method = "custom",
-                   add_assay = FALSE)
+  expect_error(
+    run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 12,
+                neighbors = nn, add_assay = FALSE),
+    "different sizes"
+  )
+})
 
-  expect_equal(r[cells[1], 1], 0)        # under-11 cell -> entropy 0
-  expect_gt(r[cells[2], 1], 0)           # normal cell -> real value
+
+test_that("custom neighbors containing the cell itself are rejected", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  cells <- colnames(pbmc_small)
+  nn <- lapply(seq_along(cells), function(i) c(cells[i], setdiff(cells, cells[i])[1:11]))
+  names(nn) <- cells
+
+  expect_error(
+    run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 12,
+                neighbors = nn, add_assay = FALSE),
+    "their own neighbour"
+  )
+})
+
+
+test_that("custom neighbors reject repeated and non-integer positions", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  cells <- colnames(pbmc_small)
+  nn <- setNames(lapply(seq_along(cells), function(i) {
+    setdiff(seq_along(cells), i)[seq_len(12)]
+  }), cells)
+
+  repeated <- nn
+  repeated[[1L]][2L] <- repeated[[1L]][1L]
+  expect_error(
+    run_entropy(
+      pbmc_small, assay = "RNA", mode = "counts", k = 12,
+      neighbors = repeated, add_assay = FALSE
+    ),
+    "repeat a neighbour"
+  )
+
+  fractional <- nn
+  fractional[[1L]][1L] <- 2.5
+  expect_error(
+    run_entropy(
+      pbmc_small, assay = "RNA", mode = "counts", k = 12,
+      neighbors = fractional, add_assay = FALSE
+    ),
+    "finite integers"
+  )
+})
+
+
+test_that("k is read from the neighbour list when it is not supplied", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  cells <- colnames(pbmc_small)
+  nn <- lapply(seq_along(cells), function(i) setdiff(cells, cells[i])[1:12])
+  names(nn) <- cells
+
+  r <- run_entropy(pbmc_small, assay = "RNA", mode = "counts",
+                   neighbors = nn, add_assay = FALSE, meta_name = "e")
+  expect_identical(r@misc$entropy_provenance$k, 12L)
+})
+
+
+test_that("k that disagrees with the neighbour list is rejected", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  cells <- colnames(pbmc_small)
+  nn <- lapply(seq_along(cells), function(i) setdiff(cells, cells[i])[1:12])
+  names(nn) <- cells
+
+  expect_error(
+    run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 15,
+                neighbors = nn, add_assay = FALSE),
+    "was requested but every cell has"
+  )
+})
+
+
+test_that("an explicitly all-empty neighbour list is allowed", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  nn <- setNames(rep(list(integer(0)), ncol(pbmc_small)), colnames(pbmc_small))
+  result <- run_entropy(
+    pbmc_small, assay = "RNA", mode = "counts", k = 11,
+    neighbors = nn, add_assay = FALSE
+  )
+
+  expect_true(all(result[[1L]] == 0))
+})
+
+
+test_that("restrict_by cannot create unequal supplied neighbourhoods", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  cells <- colnames(pbmc_small)
+  pbmc_small$grp <- c("B", rep("A", length(cells) - 1L))
+  nn <- setNames(lapply(seq_along(cells), function(i) {
+    setdiff(cells, cells[[i]])[seq_len(12)]
+  }), cells)
+
+  expect_error(
+    run_entropy(
+      pbmc_small, assay = "RNA", mode = "counts", k = 12,
+      neighbors = nn, restrict_by = "grp", add_assay = FALSE
+    ),
+    "Drop `neighbors`"
+  )
+})
+
+
+test_that("auto neighbours exclude the cell itself and are cached", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  r <- run_entropy(pbmc_small, assay = "RNA", mode = "counts", k = 11)
+  nn <- r@misc$entropy_neighbors
+
+  expect_s3_class(nn, "entropy_neighbors")
+  expect_identical(names(nn), colnames(pbmc_small))
+  expect_true(all(lengths(nn) == 11L))
+  expect_false(any(vapply(seq_along(nn), function(i) i %in% nn[[i]], logical(1))))
+
+  # second call on the returned object reuses it
+  r2 <- run_entropy(r, assay = "RNA", mode = "counts", k = 11, add_assay = FALSE,
+                    meta_name = "again")
+  expect_identical(
+    attr(r2@misc$entropy_neighbors, "built"), attr(nn, "built")
+  )
+})
+
+
+test_that("entropy_neighbors builds a valid non-self graph", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  pbmc_small <- suppressWarnings(RunPCA(pbmc_small, verbose = FALSE))
+  nn <- entropy_neighbors(pbmc_small, reduction = "pca", dims = 10, k = 15)
+
+  expect_s3_class(nn, "entropy_neighbors")
+  expect_true(all(lengths(nn) == 15L))
+  expect_false(any(vapply(seq_along(nn), function(i) i %in% nn[[i]], logical(1))))
+
+  plain <- .entropy_nn_normalise(nn, colnames(pbmc_small), k = 15)
+  expect_identical(attributes(plain), list(names = colnames(pbmc_small)))
+})
+
+
+test_that("self removal does not assume the first neighbour column", {
+  nn_idx <- rbind(
+    c(2L, 1L, 3L),
+    c(2L, 1L, 3L),
+    c(1L, 3L, 2L)
+  )
+
+  expect_identical(
+    .entropy_nn_drop_self(nn_idx),
+    list(c(2L, 3L), c(1L, 3L), c(1L, 2L))
+  )
+})
+
+
+test_that("computed candidates are trimmed to k after self removal", {
+  nn_idx <- rbind(
+    c(2L, 3L, 4L),  # self absent: all three survive identity filtering
+    c(2L, 1L, 3L),
+    c(1L, 3L, 2L),
+    c(4L, 2L, 1L)
+  )
+
+  trimmed <- .entropy_nn_trim(.entropy_nn_drop_self(nn_idx), k = 2L)
+  expect_true(all(lengths(trimmed) == 2L))
+  expect_identical(trimmed[[1L]], c(2L, 3L))
+})
+
+
+test_that("tie-heavy computed graphs contain exactly k neighbours", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  cells <- colnames(pbmc_small)
+  tied <- matrix(
+    0, nrow = length(cells), ncol = 2,
+    dimnames = list(cells, c("TIE_1", "TIE_2"))
+  )
+  pbmc_small[["ties"]] <- SeuratObject::CreateDimReducObject(
+    embeddings = tied, key = "TIE_", assay = "RNA"
+  )
+
+  fixed <- entropy_neighbors(
+    pbmc_small, reduction = "ties", dims = 2, k = 11
+  )
+  expect_true(all(lengths(fixed) == 11L))
+
+  global <- run_entropy(
+    pbmc_small, assay = "RNA", reduction = "ties", dims = 2, k = 11,
+    mode = "binary", add_assay = FALSE, meta_name = "e"
+  )
+  expect_true(all(lengths(global@misc$entropy_neighbors) == 11L))
+
+  pbmc_small$grp <- rep(c("A", "B"), each = length(cells) / 2L)
+  restricted <- run_entropy(
+    pbmc_small, assay = "RNA", reduction = "ties", dims = 2, k = 11,
+    mode = "binary", restrict_by = "grp",
+    add_assay = FALSE, meta_name = "e"
+  )
+  expect_true(all(lengths(restricted@misc$entropy_neighbors) == 11L))
+})
+
+
+test_that("automatic builders reject fewer than k plus one cells", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  small <- pbmc_small[, seq_len(14L)]
+  cells <- colnames(small)
+  embedding <- matrix(
+    0, nrow = length(cells), ncol = 2,
+    dimnames = list(cells, c("SMALL_1", "SMALL_2"))
+  )
+  small[["small"]] <- SeuratObject::CreateDimReducObject(
+    embeddings = embedding, key = "SMALL_", assay = "RNA"
+  )
+
+  expected <- "Cannot compute 15 neighbors from only 14 cells"
+  expect_error(
+    entropy_neighbors(small, reduction = "small", dims = 2, k = 15),
+    expected, fixed = TRUE
+  )
+  expect_error(
+    run_entropy(
+      small, assay = "RNA", reduction = "small", dims = 2, k = 15,
+      mode = "binary"
+    ),
+    expected, fixed = TRUE
+  )
+})
+
+
+test_that("entropy_neighbors enforces the inferred k floor", {
+  skip_if_not_installed("Seurat")
+  library(Seurat)
+  data("pbmc_small")
+
+  cells <- colnames(pbmc_small)
+  nn <- setNames(lapply(seq_along(cells), function(i) {
+    setdiff(seq_along(cells), i)[seq_len(5)]
+  }), cells)
+
+  expect_error(entropy_neighbors(pbmc_small, neighbors = nn), "below 11")
 })
 
 

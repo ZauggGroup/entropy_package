@@ -4,13 +4,7 @@
 \alias{calculate_entropy_for_cell_binary}
 \title{Calculate binary entropy for a single cell based on its neighbors}
 \usage{
-calculate_entropy_for_cell_binary(
-  cell_name,
-  mat_bin,
-  seu,
-  neighbors,
-  neighbors_method
-)
+calculate_entropy_for_cell_binary(cell_name, mat_bin, seu, neighbors)
 }
 \arguments{
 \item{cell_name}{Character. Name of the cell to compute entropy for.}
@@ -20,8 +14,6 @@ calculate_entropy_for_cell_binary(
 \item{seu}{Seurat object.}
 
 \item{neighbors}{Neighbor definition. Either a named list or a Seurat Neighbor object.}
-
-\item{neighbors_method}{Character. One of `"custom"` or `"seurat"`.}
 }
 \value{
 A numeric vector of entropy values for each feature.

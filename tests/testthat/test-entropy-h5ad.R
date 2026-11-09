@@ -161,3 +161,87 @@ test_that("run_entropy_h5ad validates the depth correction arguments", {
     "positive integer"
   )
 })
+
+
+test_that("run_entropy_h5ad enforces custom-neighbour invariants", {
+  skip_if_h5ad_unavailable()
+  path <- test_path("fixtures", "pbmc_synth_small.h5ad")
+  cells <- read_h5ad_inputs(
+    path, layer = "counts", need_embedding = FALSE, read_obs = FALSE
+  )$cell_names
+  n <- length(cells)
+  neighbors <- setNames(lapply(seq_len(n), function(i) {
+    ((i - 1L + seq_len(11L)) %% n) + 1L
+  }), cells)
+
+  unequal <- neighbors
+  unequal[[1L]] <- c(unequal[[1L]], 13L)
+  expect_error(
+    run_entropy_h5ad(
+      path, layer = "counts", neighbors = unequal,
+      neighbors_method = "custom", k = 11
+    ),
+    "different sizes"
+  )
+
+  self <- neighbors
+  self[[1L]][1L] <- 1L
+  expect_error(
+    run_entropy_h5ad(
+      path, layer = "counts", neighbors = self,
+      neighbors_method = "custom", k = 11
+    ),
+    "their own neighbour"
+  )
+
+  repeated <- neighbors
+  repeated[[1L]][2L] <- repeated[[1L]][1L]
+  expect_error(
+    run_entropy_h5ad(
+      path, layer = "counts", neighbors = repeated,
+      neighbors_method = "custom", k = 11
+    ),
+    "repeat a neighbour"
+  )
+
+  fractional <- neighbors
+  fractional[[1L]][1L] <- 2.5
+  expect_error(
+    run_entropy_h5ad(
+      path, layer = "counts", neighbors = fractional,
+      neighbors_method = "custom", k = 11
+    ),
+    "finite integers"
+  )
+
+  too_small <- lapply(neighbors, utils::head, 5L)
+  expect_error(
+    run_entropy_h5ad(
+      path, layer = "counts", neighbors = too_small,
+      neighbors_method = "custom"
+    ),
+    "below 11"
+  )
+})
+
+
+test_that("run_entropy_h5ad rejects partial restrict_by pruning", {
+  skip_if_h5ad_unavailable()
+  path <- test_path("fixtures", "pbmc_synth_small.h5ad")
+  cells <- read_h5ad_inputs(
+    path, layer = "counts", restrict_by = "celltype",
+    need_embedding = FALSE, read_obs = FALSE
+  )$cell_names
+  n <- length(cells)
+  neighbors <- setNames(lapply(seq_len(n), function(i) {
+    ((i - 1L + seq_len(11L)) %% n) + 1L
+  }), cells)
+
+  expect_error(
+    run_entropy_h5ad(
+      path, layer = "counts", neighbors = neighbors,
+      neighbors_method = "custom", k = 11, restrict_by = "celltype"
+    ),
+    "Drop `neighbors`"
+  )
+})

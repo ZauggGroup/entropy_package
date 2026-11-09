@@ -7,3 +7,6 @@
 docs
 inst/doc
 omnipathr-log/
+bm_ds.qs
+*.qs
+*.qs2

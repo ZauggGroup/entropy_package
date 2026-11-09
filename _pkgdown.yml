@@ -55,6 +55,11 @@ reference:
       - entropy_diagnose_report
       - entropy_recompute_check
       - entropy_recompute_report
+  - title: Advanced
+    desc: Not needed for a normal run
+    contents:
+      - entropy_neighbors
+      - entropy_read_genes
   - title: Entropy estimators
     contents:
       - calculate_entropy_for_cell

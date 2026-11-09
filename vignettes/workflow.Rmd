@@ -174,6 +174,46 @@ neighbourhood. On a small demonstration dataset the values are mainly
 illustrative, but on a full dataset this is a quick way to compare the entropy
 of different pathways or regulons across cell populations.
 
+## Large datasets: write restartable gene blocks
+
+`run_entropy()` normally builds a dense genes-by-cells entropy matrix. It warns
+when the estimated output exceeds 2 GB. To keep only one gene block in memory,
+set `block_dir` and turn off `add_assay`. The directory receives a manifest and
+ordered `block_*.rds` files. Repeating the same call reuses complete blocks, so
+an interrupted run resumes; changing a manifest field such as `k` is rejected
+instead of silently mixing results.
+
+Gene blocking and `chunk_method` solve independent problems and can be used
+together: blocking limits output rows in memory, while cell chunking controls
+which cell neighbourhoods are processed together.
+
+```{r, eval=FALSE}
+blocked <- run_entropy(
+  seu = pbmc_small,
+  assay = "RNA",
+  add_assay = FALSE,
+  meta_name = "entropy_mean_RNA",
+  block_dir = "entropy_blocks",
+  block_genes = 1000,
+  chunk_method = "auto"
+)
+```
+
+When `block_genes = NULL`, the package chooses a block size of approximately
+1 GB. Per-cell means use the full scored gene count as their divisor, including
+undetected genes. Retrieve only the gene rows needed downstream with
+`entropy_read_genes()`:
+
+```{r, eval=FALSE}
+selected_entropy <- entropy_read_genes(
+  "entropy_blocks",
+  c("CD3D", "MS4A1", "LYZ")
+)
+```
+
+For a depth-corrected blocked run, `entropy_read_genes()` returns the corrected
+gene-level matrix, matching the assay that an in-memory run would store.
+
 
 
 

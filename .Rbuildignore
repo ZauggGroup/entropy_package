@@ -9,3 +9,6 @@
 ^tmp$
 ^_to_delete$
 ^tools$
+^bm_ds\.qs$
+^\.RData$
+^\.Rhistory$

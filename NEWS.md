@@ -1,3 +1,94 @@
+# Entropy 0.7.0
+
+## Breaking
+
+* **A cell is no longer its own neighbour.** `run_entropy()` built the
+  unrestricted graph with `Seurat::FindNeighbors(k.param = k)`, whose result
+  contains the cell itself, so `k = 15` meant the cell plus 14 others. It now
+  uses `k.param = k + 1` and drops the self entry by identity, so `k` means `k`
+  other cells. The `restrict_by` path and `run_entropy_h5ad()` already did this, so
+  the Seurat and AnnData paths were returning different neighbourhoods for the
+  same data. They now agree. **Default-path entropy values change slightly.**
+  Results computed with 0.6.0 or earlier are not comparable to 0.7.0 values and
+  should be recomputed.
+
+* A supplied `neighbors` list is now validated instead of being taken on
+  trust. A list that contains the cell itself is an error. Every cell must
+  have the same number of distinct neighbours, with empty lists allowed for
+  cells that have none. Numeric positions must be finite integers. A Seurat
+  `Neighbor` object has its self entry dropped
+  automatically, so build it with `k.param = k + 1` if you want `k` to remain.
+
+* With a supplied list or `Neighbor` object, `k` is now checked rather than
+  ignored. Pass `k` and it must equal the number of neighbours per cell; leave
+  it unset and it is read from the list.
+
+* **Removed:** a custom list where some cells had fewer than 11 neighbours
+  used to score those cells as 0 and run on. That is now an error, because
+  uneven neighbourhood sizes make entropy values incomparable between cells.
+  Cells you genuinely want excluded should be given an empty list.
+
+* `restrict_by` with a supplied graph now requires that graph to retain either
+  exactly `k` within-group neighbours or none for every cell. Filtering a
+  global graph usually leaves unequal neighbourhood sizes and is rejected.
+  Omit `neighbors` to have `run_entropy()` or `run_entropy_h5ad()` rebuild an
+  equal-size graph independently within each group.
+
+* `get_neighbors()` takes three arguments instead of four. The
+  `neighbors_method` argument is gone, because every neighbour definition is
+  converted to one list form before entropy is computed. Same for
+  `calculate_entropy_for_cell_binary()`.
+
+## New
+
+* `run_entropy()` can now score genes in restartable blocks with `block_dir`
+  and `block_genes`, avoiding allocation of the complete dense gene-by-cell
+  entropy matrix. It warns when an unblocked output is estimated above 2 GB,
+  automatically targets roughly 1 GB blocks when no block size is supplied,
+  validates a content manifest before reusing files, and accumulates gene sums
+  so unequal final blocks do not bias the per-cell mean. The exported
+  `entropy_read_genes()` reads requested rows back without assembling the full
+  matrix. Blocking is independent of the existing cell chunking options.
+
+* `entropy_neighbors()`, exported. Builds or validates a neighbour graph and
+  returns it as a named list of positions with class `entropy_neighbors`, with
+  a `print()` method and an optional `file =` to save it. You do not need it
+  for a normal run. Use it when the same graph must exist in more than one
+  place, such as a depth sweep where every run has to see an identical graph.
+
+* `run_entropy()` caches the graph it computes at
+  `seu@misc$entropy_neighbors` and reuses it on the next call whose cells, `k`,
+  `reduction`, `dims`, `neighbor_assay` and `restrict_by` all match. When it
+  does not match, the log names the field that changed. The cache is only
+  consulted when `neighbors = NULL`: a list you hand in always wins. It also
+  only survives if the Seurat object is returned.
+
+* `run_entropy()` gains `force_neighbors`, to recompute and ignore the cache.
+
+* `neighbors_method` is now optional. Left unset it is read from `neighbors`:
+  `NULL` gives `"auto"`, a list gives `"custom"`, a `Neighbor` object gives
+  `"seurat"`. Passing it explicitly still works and now errors when it
+  contradicts what was supplied, for example `"auto"` together with a
+  `neighbors` argument.
+
+* `entropy_recompute_check(mechanism = "downsample_counts",
+  drop_below_target = TRUE)` now rebuilds the neighbour graph on the retained
+  cells instead of intersecting the original graph with them. Intersecting
+  left each cell with a different number of neighbours, so part of any
+  "ranking survives" verdict from that setting was an artefact of uneven
+  neighbourhood sizes. `recompute_neighbors = FALSE` is now rejected there,
+  the same way it already was for `subsample_cells`. The embedding itself is
+  not rebuilt, so the intervention still isolates the estimator channel.
+
+## Internal
+
+* The unrestricted graph is built from the embedding matrix rather than from a
+  copy of the Seurat object, so `run_entropy()` no longer duplicates the object
+  just to set a default assay.
+
+* `get_neighbors()` is a plain lookup. Range and name validation happens once
+  on entry instead of once per cell.
+
 # Entropy 0.6.0
 
 * `entropy_diagnose()` no longer requires a Seurat object. Pass `seu = NULL` and

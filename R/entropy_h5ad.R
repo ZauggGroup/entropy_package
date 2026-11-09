@@ -22,6 +22,8 @@
 #'   (default) uses `X`. For `mode = "counts"` this must hold integer counts.
 #' @param neighbors Optional named list for `neighbors_method = "custom"`, where
 #'   `neighbors[[cell_name]]` returns neighbor cell names or integer indices.
+#'   A cell may not be its own neighbour, positions may not be repeated, and
+#'   every cell must have the same number of neighbours, empty lists aside.
 #' @param neighbors_method Character. One of `"auto"` or `"custom"`. `"auto"`
 #'   computes neighbors from the PCA embedding with `RANN::nn2`. `"custom"` uses
 #'   the user-provided `neighbors` list. (There is no `"seurat"` here: no object.)
@@ -30,14 +32,18 @@
 #' @param restrict_by Optional character. Name of a column in `obs` to restrict
 #'   neighbors within. Same semantics as `run_entropy()`: auto recomputes kNN
 #'   within each group; groups smaller than `k + 1` return entropy 0; NA cells
-#'   return entropy 0.
+#'   return entropy 0. A supplied graph is filtered within groups, and the call
+#'   errors if this leaves unequal or sub-`k` non-empty neighbourhoods. For a
+#'   global supplied graph, omit `neighbors` to rebuild within each group.
 #' @param pca_key Character. Key in `obsm` holding the embedding. Default
 #'   `"X_pca"`.
 #' @param dims Integer vector or single integer. Columns of the embedding to use.
 #'   A single `n` means `1:n`. A vector is used as given (e.g. `2:20` skips
 #'   component 1 for LSI/ATAC). Default 20.
-#' @param k Integer. Number of neighbors when computing internally. Must be at
-#'   least 11 (counts estimator floor). Default 15.
+#' @param k Integer. Number of neighbors, excluding the cell itself, when
+#'   computing internally. Must be at least 11 (counts estimator floor).
+#'   Default 15. With a supplied `neighbors` list, `k` is checked against the
+#'   list rather than used; leave it unset and it is read from the list.
 #' @param mode Character. `"counts"` (BUB) or `"binary"` (Bernoulli Shannon).
 #' @param chunk_method Character. `"none"` (default) or `"auto"`. `"auto"` splits
 #'   cells into compact chunks by k-means on the embedding to cut sparse-subset
@@ -102,6 +108,7 @@ run_entropy_h5ad <- function(
     target_depth     = NULL
 ){
 
+  k_given <- !missing(k)
   neighbors_method <- match.arg(neighbors_method)
   mode <- match.arg(mode)
   chunk_method <- match.arg(chunk_method)
@@ -341,6 +348,9 @@ run_entropy_h5ad <- function(
     if (!is.list(neighbors) || is.null(names(neighbors))) {
       stop("`neighbors` must be a named list where neighbors[[cell_name]] returns neighbor names or indices.")
     }
+    if (anyDuplicated(names(neighbors))) {
+      stop("`neighbors` must not contain duplicate cell names.", call. = FALSE)
+    }
     missing_cells <- setdiff(cell_names, names(neighbors))
     if (length(missing_cells) > 0) {
       stop(
@@ -348,9 +358,11 @@ run_entropy_h5ad <- function(
         "Each cell must appear in names(neighbors), even if it has no neighbors."
       )
     }
-    futile.logger::flog.info("Using user-provided custom neighbors.")
-    # resolve names/indices to integer indices into cell_names, once
-    for (cell in cell_names) {
+    # Resolve names to positions once, then apply the same rules as
+    # run_entropy(): no cell is its own neighbour, and every non-empty list
+    # has the same size, which is k.
+    for (i in seq_along(cell_names)) {
+      cell <- cell_names[[i]]
       v <- neighbors[[cell]]
       if (length(v) == 0) {
         nn_list[[cell]] <- integer(0)
@@ -361,13 +373,32 @@ run_entropy_h5ad <- function(
         }
         nn_list[[cell]] <- idx
       } else {
-        idx <- as.integer(v)
-        if (any(is.na(idx)) || any(idx < 1) || any(idx > n_cells)) {
-          stop(sprintf("Some neighbor indices for cell '%s' are out of range.", cell))
+        if (!is.numeric(v) || any(!is.finite(v)) || any(v != floor(v))) {
+          stop(sprintf(
+            "Neighbor positions for cell '%s' must be finite integers.", cell),
+            call. = FALSE)
         }
-        nn_list[[cell]] <- idx
+        nn_list[[cell]] <- as.integer(v)
       }
     }
+    k_resolved <- .entropy_nn_check(nn_list, cell_names, k, k_given)
+    if (!k_given) {
+      futile.logger::flog.info(
+        "k not supplied; set to %d from the neighbour list.", k_resolved)
+      k <- k_resolved
+      if (k < 11L) {
+        stop(sprintf(paste0(
+          "The supplied neighbour list gives k = %d. The counts entropy ",
+          "estimator is undefined below 11 neighbors."), k), call. = FALSE)
+      }
+    }
+    futile.logger::flog.info(
+      "Using user-provided custom neighbors: %d non-self per cell, %d cells with 0.",
+      k, sum(lengths(nn_list) == 0L))
+  }
+
+  if (neighbors_method == "auto") {
+    .entropy_nn_check(nn_list, cell_names, k, k_given = TRUE)
   }
 
   #### Filter within groups (custom only; auto already handled itself)
@@ -384,30 +415,14 @@ run_entropy_h5ad <- function(
         nn_list[[cell]] <- nn_idx[grp[nn_idx] == cell_grp & !is.na(grp[nn_idx])]
       }
     }
+    # Keep the same invariant as run_entropy(): filtering a supplied graph may
+    # produce empty entries, but it may not silently leave unequal or sub-k
+    # non-empty neighbourhoods.
+    .entropy_nn_check_restricted(nn_list, cell_names, k)
     futile.logger::flog.info(
       "Within-group filtering: mean neighbors %.1f -> %.1f; %d cells now with 0 neighbors.",
       mean(n_before), mean(lengths(nn_list)), sum(lengths(nn_list) == 0)
     )
-  }
-
-  #### Orphan cells with < 11 neighbors (custom only; counts estimator floor)
-  # NOTE: mirrors run_entropy, which applies this in both modes for custom.
-  # Binary mode does not strictly need 11, so this is slightly conservative.
-  if (restrict_method == "custom") {
-    n_orphaned <- 0L
-    for (cell in cell_names) {
-      nn_idx <- nn_list[[cell]]
-      if (length(nn_idx) < 11L) {
-        if (length(nn_idx) > 0L) n_orphaned <- n_orphaned + 1L
-        nn_list[[cell]] <- integer(0)
-      }
-    }
-    if (n_orphaned > 0L) {
-      futile.logger::flog.warn(
-        "%d of %d cells have fewer than 11 neighbors and will return entropy 0.",
-        n_orphaned, n_cells
-      )
-    }
   }
 
   ###################### NN finish ############################################

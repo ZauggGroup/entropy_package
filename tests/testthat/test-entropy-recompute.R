@@ -82,6 +82,49 @@ test_that("entropy_recompute_check validates its main arguments", {
     ),
     "not valid"
   )
+  expect_error(
+    entropy_recompute_check(
+      fixture$seu, fixture$entropy, "cluster",
+      mechanism = "downsample_counts", entropy_args = fixture$args,
+      target_depth = 50, drop_below_target = TRUE,
+      recompute_neighbors = FALSE, verbose = FALSE
+    ),
+    "not valid"
+  )
+})
+
+
+test_that("dropping shallow cells rebuilds neighbors but keeps the embedding", {
+  skip_if_not_installed("Seurat")
+  fixture <- make_recompute_fixture()
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    .entropy_run_recompute = function(
+        seu, entropy_args, neighbors, recompute_neighbors, features = NULL,
+        rebuild_reduction = FALSE) {
+      seen <<- list(
+        cells = colnames(seu), neighbors = neighbors,
+        recompute_neighbors = recompute_neighbors,
+        rebuild_reduction = rebuild_reduction
+      )
+      values <- as.numeric(seu$mock_after)
+      names(values) <- colnames(seu)
+      values
+    },
+    .package = "Entropy"
+  )
+
+  suppressWarnings(entropy_recompute_check(
+    fixture$seu, fixture$entropy, "cluster",
+    mechanism = "downsample_counts", entropy_args = fixture$args,
+    target_depth = 50, drop_below_target = TRUE,
+    n_repeats = 1, verbose = FALSE
+  ))
+
+  expect_true(seen$recompute_neighbors)
+  expect_null(seen$neighbors)
+  expect_false(seen$rebuild_reduction)
+  expect_lt(length(seen$cells), ncol(fixture$seu))
 })
 
 

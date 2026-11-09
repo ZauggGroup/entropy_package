@@ -21,6 +21,15 @@ The function `run_entropy()` supports **three different ways** to define these n
 
 This vignette explains how to use each mode.
 
+Two rules hold in all three:
+
+- **A cell is never its own neighbour.** `k` means `k` *other* cells. A custom
+  list that contains the cell itself is rejected, and a Seurat `Neighbor`
+  object has its self entry removed for you.
+- **`neighbors_method` is optional.** If you leave it unset it is read from
+  what you pass in `neighbors`: nothing means `auto`, a list means `custom`,
+  a `Neighbor` object means `seurat`.
+
 ---
 
 # Load libraries and example data
@@ -95,7 +104,8 @@ Key parameters used in this mode:
 - `neighbors = NULL` → tells the function to compute neighbors automatically  
 - `neighbors_method = "auto"` → activates internal neighbor computation  
 - `neighbor_assay` → assay used to compute the neighbor graph  
-- `k` → number of nearest neighbors  
+- `k` → number of nearest neighbors, not counting the cell itself
+- `force_neighbors` → recompute even if a cached graph is present
 - `dims` → dimensions of the reduction to use. A single number `n` means `1:n`, a vector like `2:20` is used as given (useful for ATAC/LSI where component 1 tracks sequencing depth).
 
 
@@ -113,11 +123,13 @@ First we compute neighbors using Seurat.
 ```{r message=FALSE, warning=FALSE, results='hide'}
 pbmc_small <- RunPCA(pbmc_small)
 
+# k.param = k + 1, because the self entry is dropped and we want k = 15 left
 pbmc_small <- FindNeighbors(
   pbmc_small,
   reduction = "pca",
   dims = 1:10,
   return.neighbor = TRUE,
+  k.param = 16,
   graph.name = "example_nn"
 )
 
@@ -125,6 +137,16 @@ nn_obj <- pbmc_small@neighbors[["example_nn"]]
 ```
 
 The object `nn_obj` is a **Seurat Neighbor object** that contains the indices of neighboring cells.
+
+One entry in each row of `nn_obj@nn.idx` is the cell itself. It is usually the
+first, but ties can move it, so remove it by identity rather than by column.
+`run_entropy()` does this for a `Neighbor` object. You end up with
+`k.param - 1` neighbours, which is why it was built with `k.param = 16` above:
+16 minus the cell itself leaves `k = 15`.
+
+If the two do not line up, `run_entropy()` stops and says so rather than
+quietly scoring a different number of neighbours. You can also leave `k`
+unset, in which case it is read from the graph you supplied.
 
 We can now pass this object directly to `run_entropy()`.
 
@@ -184,7 +206,9 @@ cell_names <- colnames(pbmc_small)
 
 custom_neighbors <- setNames(
   lapply(seq_along(cell_names), function(i) {
+    # Remove self by identity, not by column: ties can move its position.
     neighbor_idx <- nn_obj@nn.idx[i, ]
+    neighbor_idx <- neighbor_idx[neighbor_idx != i]
     cell_names[neighbor_idx]
   }),
   cell_names
@@ -229,7 +253,55 @@ head(res_custom)
 Key parameters:
 
 - `neighbors = custom_neighbors` → the neighbor list  
-- `neighbors_method = "custom"` → tells the function to interpret the list  
+- `neighbors_method = "custom"` → optional, it is detected from the list
+
+Every cell must have the **same number** of neighbours, and none of them may be
+the cell itself. Positions may not be repeated. Lists of different sizes are an
+error. The one exception is an empty list, which marks a cell with no neighbours
+and scores 0.
+
+When `restrict_by` is also used, filtering must leave either all `k` neighbours
+or none for each cell. A partially pruned supplied neighbourhood is rejected,
+because it would make scores based on different sample sizes incomparable.
+For a global graph, omit `neighbors` and let the automatic path rebuild `k`
+neighbours independently within each group.
+
+---
+
+# 4. Reusing one graph: `entropy_neighbors()`
+
+You do not need this for a normal run. In `auto` mode the graph is computed
+once and cached at `seu@misc$entropy_neighbors`, and the next call reuses it
+whenever the cells, `k`, `reduction`, `dims`, `neighbor_assay` and
+`restrict_by` all match. If something changed, the log says which field, and
+it recomputes.
+
+The cache lives on the object, so it only survives if the object is returned.
+With `add_assay = FALSE`, no `meta_name` and `depth_correct = FALSE`,
+`run_entropy()` returns a data frame and the cache is lost.
+
+`entropy_neighbors()` is for the case where the same graph has to exist in more
+than one place: a second script, a saved file, or a depth sweep where every run
+must see an identical graph.
+
+```{r}
+nn <- entropy_neighbors(pbmc_small, reduction = "pca", dims = 10, k = 15)
+nn
+```
+
+It returns the standard named list, so it goes straight into `run_entropy()`:
+
+```{r}
+res_fixed <- run_entropy(
+  seu = pbmc_small,
+  assay = "RNA",
+  neighbors = nn,
+  add_assay = FALSE,
+  mode = "counts"
+)
+```
+
+Pass `file = "neighbors.rds"` to save it at the same time.
 
 ---
 
@@ -239,9 +311,11 @@ The entropy function supports three flexible ways to define neighborhoods:
 
 | Mode | Input | Typical use |
 |-----|-----|-----|
-| auto | none | simplest option, neighbors computed internally |
+| auto | none | simplest option, neighbors computed internally and cached |
 | seurat | Seurat Neighbor object | reuse neighbors from Seurat workflows |
 | custom | named list | fully user-defined neighborhood structure |
+
+In every case the cell itself is excluded from its own neighbourhood.
 
 For most users, `"auto"` mode is recommended.  
 Advanced users can supply Seurat or custom neighbors to integrate entropy estimation into existing pipelines.
