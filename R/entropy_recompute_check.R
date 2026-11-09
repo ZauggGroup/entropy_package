@@ -6,11 +6,10 @@
 #' number of sampled cells per group, or remove a specified gene programme.
 #'
 #' @details
-#' `entropy_diagnose()` is observational. It compares cells at similar values
-#' of a covariate, but it cannot tell a technical confounder from a biological
-#' mediator. This function is interventional. It removes an effect physically
-#' rather than statistically, then recomputes entropy. A ranking that survives
-#' is therefore stronger evidence, although it still does not prove plasticity.
+#' This is an interventional check. It removes an effect physically rather than
+#' adjusting for a covariate statistically, then recomputes entropy. A ranking
+#' that survives is therefore stronger evidence, although it still does not
+#' prove plasticity or distinguish every technical and biological cause.
 #'
 #' Fixed neighbours are the default for count downsampling and gene removal.
 #' This isolates what the entropy estimator reads from a fixed local context.

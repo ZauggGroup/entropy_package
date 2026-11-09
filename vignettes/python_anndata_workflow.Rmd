@@ -152,6 +152,16 @@ The returned data frame has one row per cell. Its row names are the original
 `adata.obs_names`, and the `Entropy_mean` column contains the mean gene-expression
 entropy for each cell.
 
+As of Entropy 0.7.0, `k` means `k` other cells and never includes the focal
+cell. Results therefore differ slightly from values produced with 0.6.0 and
+should not be compared across those versions.
+
+The h5ad path also validates every supplied custom neighbour list. A cell
+cannot name itself, every non-empty list must have the same size, and an
+explicit `k` must equal that size. A custom list that worked in 0.6.0 can now
+error; remove self entries, make the list sizes equal, and either pass the
+matching `k` or leave `k` unset so it is inferred.
+
 For example, the first rows for the bundled synthetic AnnData test object are:
 
 ```text
@@ -456,6 +466,11 @@ knitr::include_graphics("figures/h5ad_entropy_mode_comparison.png")
 
 By default, only the per-cell mean data frame is returned. Set `output_path`
 to save the full gene-by-cell matrix as an RDS file:
+
+Restartable gene blocking is currently available only through the Seurat
+`run_entropy()` path. `run_entropy_h5ad()` still constructs the complete
+gene-by-cell entropy matrix in memory before saving it, including when cell
+chunking is enabled.
 
 ```{r, eval=FALSE}
 entropy_means <- run_entropy_h5ad(
