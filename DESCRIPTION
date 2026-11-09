@@ -3,11 +3,11 @@ Type: Package
 Title: Entropy Estimation for Seurat and AnnData Objects
 Version: 0.7.0
 Authors@R: c(
-    person("Aryan", "Kamal", email = "aryan.kamal@embl.de", role = c("aut", "cre")),
+    person("Aryan", "Kamal", email = "aryan.kamal@unibas.ch", role = c("aut", "cre")),
     person("Charles", "Dussiau", email = "charles.dussiau@embl.de", role = c("aut")),
     person("Amelia", "Kurti", email = "amelia.kurti@dkfz-heidelberg.de", role = c("aut")),
     person("Judith", "Zaugg", email = "judith.zaugg@embl.de", role = "aut"))
-Maintainer: Aryan Kamal <aryan.kamal@embl.de>
+Maintainer: Aryan Kamal <aryan.kamal@unibas.ch>
 Description: Provides methods to estimate transcriptional entropy for
     individual cells in Seurat objects and AnnData h5ad files. It supports
     BUB-based and binary entropy estimation using neighborhood gene expression,
@@ -19,9 +19,8 @@ Description: Provides methods to estimate transcriptional entropy for
     covariate values, and an interventional check that alters the input and
     recomputes entropy to ask whether the cluster ranking survives.
 License: LGPL (>= 3)
-URL: https://grp-zaugg.embl-community.io/entropy_package,
-    https://git.embl.de/grp-zaugg/entropy_package
-BugReports: https://git.embl.de/grp-zaugg/entropy_package/-/issues
+URL: https://git.scicore.unibas.ch/zaugg-group/entropy_package
+BugReports: https://git.scicore.unibas.ch/zaugg-group/entropy_package/-/issues
 Encoding: UTF-8
 LazyData: true
 VignetteBuilder: knitr

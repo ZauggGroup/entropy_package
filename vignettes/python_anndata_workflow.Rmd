@@ -43,8 +43,8 @@ BiocManager::install(c("anndataR", "rhdf5"))
 
 install.packages("devtools")
 devtools::install_gitlab(
-  "grp-zaugg/entropy_package",
-  host = "git.embl.de",
+  "zaugg-group/entropy_package",
+  host = "git.scicore.unibas.ch",
   force = TRUE
 )
 ```

@@ -8,7 +8,7 @@ Interpreting a high score as plasticity is a claim about biology, not a
 property of the measurement, so the package ships diagnostics to test that
 interpretation before you make it.
 
-[Package documentation](https://grp-zaugg.embl-community.io/entropy_package/)
+[Package repository](https://git.scicore.unibas.ch/zaugg-group/entropy_package)
 
 ## Overview
 
@@ -53,8 +53,8 @@ and a worked example on simulated data with known causes.
 
 ```r
 devtools::install_gitlab(
-  "grp-zaugg/entropy_package",
-  host = "git.embl.de",
+  "zaugg-group/entropy_package",
+  host = "git.scicore.unibas.ch",
   force = TRUE
 )
 ```
@@ -93,7 +93,7 @@ For questions about the methodology, contact Judith B. Zaugg
 (charles.dussiau@embl.de).
 
 For technical and implementation questions, contact Aryan Kamal
-(aryan.kamal@embl.de).
+(aryan.kamal@unibas.ch).
 
 Bug reports and feature requests can be submitted through the
-[GitLab issue tracker](https://git.embl.de/grp-zaugg/entropy_package/-/issues).
+[GitLab issue tracker](https://git.scicore.unibas.ch/zaugg-group/entropy_package/-/issues).

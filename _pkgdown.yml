@@ -1,4 +1,5 @@
-url: https://grp-zaugg.embl-community.io/entropy_package
+# url: set this once the sciCORE Pages address is known. pkgdown builds
+# without it; it only affects absolute links and the sitemap.
 template:
   bootstrap: 5
   bootswatch: flatly
