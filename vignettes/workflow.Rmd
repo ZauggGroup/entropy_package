@@ -77,6 +77,38 @@ result_binary <- run_entropy(
 head(result_binary)
 ```
 
+## Choose whether to correct count depth
+
+Depth correction is a trade between removing variation aligned with the
+original detected-gene count and retaining everything else. Use
+`entropy_depth_select()` before treating the corrected score as the main
+result. The sweep keeps the original depth covariate, neighbour graph, and gene
+panel fixed, and includes no correction as `q = 1`.
+
+The full default grid is intended for a real dataset, so this call is not run
+while the small example vignette is built.
+
+```{r, eval=FALSE}
+depth_selection <- entropy_depth_select(
+  object = pbmc_small,
+  group = "groups",
+  outdir = "depth_selection",
+  assay = "RNA",
+  reduction = "pca",
+  dims = 1:10,
+  mode = "counts"
+)
+
+depth_selection
+```
+
+The result selects the quantile with the largest weighted objective across the
+complete grid. The PDF in `depth_selection/depth_selection_report.pdf` shows
+the frontier, its do-nothing diagonal, the step price, and before-and-after
+covariate associations. See the
+[Choosing depth correction](choosing_depth_correction.html) tutorial for how to
+read those panels and how the retention weight changes the choice.
+
 ## Visualize binary entropy distribution
 
 ```{r}
@@ -121,7 +153,7 @@ par(mfrow = c(1, 1))
 Restricting neighbors to within-group cells changes each cell's neighborhood
 composition, which shifts the entropy estimates. On a small demonstration
 dataset like `pbmc_small` the magnitude of the difference is not biologically
-meaningful — the purpose here is to show the effect of the `restrict_by`
+meaningful. The purpose here is to show the effect of the `restrict_by`
 argument on the computation, not to interpret the values.
 
 

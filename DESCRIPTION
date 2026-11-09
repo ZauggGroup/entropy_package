@@ -14,10 +14,10 @@ Description: Provides methods to estimate transcriptional entropy for
     with direct integration into R, Seurat, Python, and Scanpy workflows.
     Optional count-depth correction thins every cell to a common library
     depth before estimation, because sequencing depth inflates entropy for
-    purely technical reasons. Two diagnostics assess whether a per-cell score
-    is confounded: an observational screen that compares clusters at matched
-    covariate values, and an interventional check that alters the input and
-    recomputes entropy to ask whether the cluster ranking survives.
+    purely technical reasons. A restartable depth-selection sweep chooses a
+    correction quantile by balancing removed depth-aligned variance against
+    retained variation. An interventional check can also alter an input and
+    recompute entropy to ask whether a cluster ranking survives.
 License: LGPL (>= 3)
 URL: https://git.scicore.unibas.ch/zaugg-group/entropy_package
 BugReports: https://git.scicore.unibas.ch/zaugg-group/entropy_package/-/issues

@@ -2,6 +2,11 @@
 
 ## Breaking
 
+* `entropy_diagnose()` and `entropy_diagnose_report()` have been removed. Their
+  matched-bin diagnostic is replaced by `entropy_depth_select()`, which chooses
+  among count-depth corrections and the uncorrected score on one absolute
+  variance frontier.
+
 * **A cell is no longer its own neighbour.** `run_entropy()` built the
   unrestricted graph with `Seurat::FindNeighbors(k.param = k)`, whose result
   contains the cell itself, so `k = 15` meant the cell plus 14 others. It now
@@ -40,6 +45,15 @@
   `calculate_entropy_for_cell_binary()`.
 
 ## New
+
+* `entropy_depth_select()` runs a restartable quantile sweep with one fixed
+  neighbour graph, original detected-gene count, and fixed gene panel. It
+  writes a two- to four-page report plus frontier, covariate, and within-group
+  tables. `entropy_depth_report()` redraws those outputs without recomputing.
+
+* The `downsample_counts` mechanism in `entropy_recompute_check()` is
+  superseded for choosing a depth target by the depth-selection sweep. The
+  recompute functions remain available for intervention checks.
 
 * `run_entropy()` can now score genes in restartable blocks with `block_dir`
   and `block_genes`, avoiding allocation of the complete dense gene-by-cell

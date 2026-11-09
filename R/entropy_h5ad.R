@@ -71,9 +71,9 @@
 #' @param return_inputs Logical. If `TRUE`, return a list with the per-cell
 #'   `entropy` vector, the `embedding` used for neighbours, the `obs` metadata
 #'   read from the file, and the usual per-cell `results` data frame. This is
-#'   the input [entropy_diagnose()] needs, so the diagnostic can be run without
-#'   reading the file a second time and without a Seurat object. The default is
-#'   `FALSE`, which returns only the data frame.
+#'   useful for custom checks without reading the file a second time. The
+#'   automatic [entropy_depth_select()] sweep is currently Seurat-only. The
+#'   default is `FALSE`, which returns only the data frame.
 #' @param output_path Optional character. If set, saves the full gene x cell
 #'   entropy matrix with `saveRDS()`. The per-cell mean data frame is still
 #'   returned.

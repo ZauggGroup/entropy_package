@@ -24,9 +24,9 @@ navbar:
         - text: Neighborhood
           desc: Neighborhood definition and usage modes
           href: articles/neighborhood.html
-        - text: Diagnosing confounds
-          desc: Detect and correct technical drivers of entropy scores
-          href: articles/diagnosing_confounds.html
+        - text: Choosing depth correction
+          desc: Read the depth frontier and choose a correction quantile
+          href: articles/choosing_depth_correction.html
         - text: Python and AnnData
           desc: Run Entropy directly on an h5ad file from a Python workflow
           href: articles/python_anndata_workflow.html
@@ -43,7 +43,7 @@ articles:
       - getting_started
       - workflow
       - neighborhood
-      - diagnosing_confounds
+      - choosing_depth_correction
       - python_anndata_workflow
 
 reference:
@@ -52,8 +52,8 @@ reference:
       - run_entropy
       - run_entropy_h5ad
       - add_entropy_score
-      - entropy_diagnose
-      - entropy_diagnose_report
+      - entropy_depth_select
+      - entropy_depth_report
       - entropy_recompute_check
       - entropy_recompute_report
   - title: Advanced

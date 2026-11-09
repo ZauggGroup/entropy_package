@@ -1,0 +1,305 @@
+---
+title: "Choosing depth correction"
+author: "Aryan Kamal, Charles Dussiau, Amelia Kurti, Judith Zaugg"
+date: "`r doc_date()`"
+package: "`r BiocStyle::pkg_ver('Entropy')`"
+output: BiocStyle::html_document
+vignette: >
+  %\VignetteIndexEntry{Choosing depth correction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.align = "center")
+library(Entropy)
+library(ggplot2)
+library(patchwork)
+```
+
+This tutorial answers one practical question: should an entropy score be
+corrected for count depth, and if so, how far should correction go? The answer
+comes from a frontier. It measures how much depth-aligned variance is removed
+and how much other variation remains as counts are thinned.
+
+## Why depth is a confound at all
+
+Shannon entropy is scale invariant for a fixed composition. The vectors
+`(0, 5, 10)` and `(0, 1, 2)` both have entropy 0.918 bits. Sequencing depth does
+not rescale the observed vector, however. It resamples it. Downsampling
+`(0, 5, 10)` to three counts gives expected entropy 0.656 bits, against 0.918
+bits for the underlying composition. That is a 29% drop caused by sampling
+alone.
+
+Entropy is concave, so subsampling has a downward bias. The BUB estimator
+corrects much of the finite-sample bias when the alphabet has been observed,
+but it cannot restore a category that was never sampled. Binary mode does not
+solve this censoring problem. Log normalisation and counts per million change
+scale, not sampling variance.
+
+Deeper cells can therefore receive higher entropy values even when their
+underlying composition is unchanged. Correction thins the deeper cells to a
+common target before entropy is estimated. It can reduce this depth effect,
+but it also discards observations. The frontier makes that trade visible.
+
+## The two numbers
+
+Let $y_q$ be the per-cell entropy at target quantile $q$, and let $x$ be the
+number of detected genes in the original count matrix. The original $x$ is
+used for every value of $q$. A linear fit splits the absolute variance:
+
+\[
+V_{total}(q) = \mathrm{var}(y_q), \qquad
+V_{confound}(q) = R^2(q)V_{total}(q),
+\]
+
+\[
+V_{leftover}(q) = \{1-R^2(q)\}V_{total}(q).
+\]
+
+The split is then normalised against no correction, represented by $q=1$:
+
+\[
+\mathrm{confound\ removed}(q) =
+1 - \frac{V_{confound}(q)}{V_{confound}(1)},
+\]
+
+\[
+\mathrm{retained}(q) =
+\frac{V_{leftover}(q)}{V_{leftover}(1)}.
+\]
+
+These are absolute variance comparisons. Ranking candidates by $R^2$ alone
+would miss a score that simply shrank in every direction.
+
+## The frontier and the diagonal
+
+The following simulation creates exact depth-aligned and independent
+components. In the first object, thinning removes the depth component faster
+than it removes the independent component. In the second, both components
+shrink together.
+
+```{r simulate-frontiers}
+set.seed(12)
+n_cells <- 1200
+x <- as.numeric(scale(rnorm(n_cells)))
+other <- rnorm(n_cells)
+other <- residuals(lm(other ~ x))
+other <- as.numeric(scale(other))
+
+q_values <- c(1, 0.8, 0.6, 0.4, 0.2)
+
+make_object <- function(removed, retained, label) {
+  scores <- lapply(seq_along(q_values), function(i) {
+    sqrt(1 - removed[i]) * x + sqrt(retained[i]) * other
+  })
+  names(scores) <- paste0("q", q_values)
+  list(x = x, scores = scores, q = q_values, label = label)
+}
+
+bulged <- make_object(
+  removed = c(0, 0.15, 0.40, 0.65, 0.80),
+  retained = c(1, 0.96, 0.88, 0.72, 0.48),
+  label = "Separable"
+)
+
+diagonal <- make_object(
+  removed = c(0, 0.15, 0.35, 0.55, 0.75),
+  retained = c(1, 0.85, 0.65, 0.45, 0.25),
+  label = "Collinear"
+)
+
+make_frontier <- function(object, w = 1.5) {
+  rows <- lapply(seq_along(object$q), function(i) {
+    y <- object$scores[[i]]
+    fit <- lm(y ~ object$x)
+    total <- var(y)
+    r_squared <- summary(fit)$r.squared
+    data.frame(
+      q = object$q[i],
+      V_confound = r_squared * total,
+      V_leftover = (1 - r_squared) * total
+    )
+  })
+  result <- do.call(rbind, rows)
+  result$confound_removed <- 1 - result$V_confound / result$V_confound[1]
+  result$retained <- result$V_leftover / result$V_leftover[1]
+  result$objective <- result$confound_removed + w * result$retained
+  result$price_step <- c(
+    NA,
+    -diff(result$retained) / diff(result$confound_removed)
+  )
+  result$object <- object$label
+  result
+}
+
+frontiers <- rbind(make_frontier(bulged), make_frontier(diagonal))
+```
+
+```{r frontier-plot, fig.width=9, fig.height=4}
+ggplot(
+  frontiers,
+  aes(confound_removed, retained, label = q)
+) +
+  geom_abline(intercept = 1, slope = -1, linetype = 2, colour = "grey50") +
+  geom_path(colour = "#4C78A8", linewidth = 0.9) +
+  geom_point(colour = "#4C78A8", size = 2.5) +
+  geom_text(nudge_y = 0.035, size = 3) +
+  facet_wrap(~ object) +
+  coord_equal() +
+  labs(
+    x = "Confound removed",
+    y = "Variation retained",
+    title = "A bulged frontier and a diagonal frontier"
+  ) +
+  theme_minimal()
+```
+
+The dashed line is the do-nothing diagonal. On it, every unit of removed
+depth-aligned variation costs one unit of other variation. A frontier that
+bulges above it offers a useful trade. A frontier that follows it says that
+thinning mostly shrinks the score rather than restructuring it.
+
+## The step price
+
+Between adjacent quantiles, the step price is
+
+\[
+\mathrm{price}_{step} =
+-\frac{\Delta\,\mathrm{retained}}
+       {\Delta\,\mathrm{confound\ removed}}.
+\]
+
+A price of one means that one unit of other variation was lost for one unit of
+depth-aligned variation removed. At retention weight $w=1$, one is the
+break-even price. With a general $w$, the budget is $1/w$.
+
+```{r price-plot, fig.width=8, fig.height=4}
+ggplot(frontiers, aes(q, price_step, colour = object)) +
+  geom_hline(yintercept = 1, linetype = 2, colour = "grey50") +
+  geom_line() +
+  geom_point() +
+  scale_x_reverse() +
+  labs(
+    x = "Depth quantile q", y = "Step price",
+    title = "A step price below the budget is attractive"
+  ) +
+  theme_minimal()
+```
+
+The selector does not walk through these steps. It evaluates the objective
+
+\[
+\mathrm{objective}(q) =
+\mathrm{confound\ removed}(q) + w\,\mathrm{retained}(q)
+\]
+
+over the complete grid, including $q=1$. Because $q=1$ has objective $w$, a
+corrected candidate has to beat leaving the data alone.
+
+## What the retention weight means
+
+Smaller values of $w$ accept more loss of other variation. Larger values
+protect it more strongly. The labels below describe the regimes; the function
+itself accepts a numeric value.
+
+```{r weight-table}
+weights <- data.frame(
+  w = c(0.5, 1, 1.5, 2),
+  description = c("harsh", "break-even", "default", "conservative"),
+  interpretation = c(
+    "accepts up to 2 units lost per unit removed",
+    "accepts a one-for-one trade",
+    "accepts up to 0.667 units lost per unit removed",
+    "accepts up to 0.5 units lost per unit removed"
+  ),
+  stringsAsFactors = FALSE
+)
+
+bulged_frontier <- make_frontier(bulged)
+weights$chosen_q <- vapply(weights$w, function(weight) {
+  objective <- bulged_frontier$confound_removed +
+    weight * bulged_frontier$retained
+  bulged_frontier$q[which.max(objective)]
+}, numeric(1))
+
+knitr::kable(weights)
+```
+
+The default is $w=1.5$. It is a calibrated default, not a derived constant.
+Among values 1, 1.5, and 2, it was the only value that did not contradict the
+three datasets used during development.
+
+## The three real datasets
+
+The published development results were:
+
+```{r real-results}
+real_results <- data.frame(
+  dataset = c("bone marrow (BM)", "bone marrow (JD)", "DS Atlas"),
+  chosen_q_at_w_1_5 = c("about 0.80 to 0.85", "0.85", "1, no correction"),
+  cumulative_price = c("0.31 at q = 0.70", "0.56", "0.92 best available"),
+  decision = c("correct", "correct", "do not correct"),
+  check.names = FALSE
+)
+knitr::kable(real_results)
+```
+
+At $w=1$, the DS Atlas would have been corrected, contrary to its author's
+decision. At $w=2$, the JD dataset would have been left uncorrected, contrary
+to the analysis that was accepted. Two of these three datasets are bone
+marrow, so this calibration is useful evidence, not a universal guarantee.
+
+## How to read a refusal
+
+In the collinear simulation, every corrected point lies near the diagonal.
+The objective is largest at $q=1$ for $w=1.5$. This does not mean depth is
+unrelated to entropy. It means thinning cannot remove that relationship without
+losing at least as much other variation under the chosen weight.
+
+Depth and biological state can be collinear, for example when deep cells are
+sorted progenitors. A refusal is then the honest result: use the uncorrected
+score, report the depth association, or lower $w$ only if the larger trade is
+scientifically acceptable.
+
+## What retained variation is not
+
+Retained variation is all variance not linearly aligned with the original
+detected-gene count. It includes real biology, but it can also include nonlinear
+depth effects, ambient RNA, sampling noise, and other technical structure. The
+selector therefore makes a transparent variance trade. It does not identify
+the biological meaning of everything that remains.
+
+## Run the selector
+
+The automatic sweep currently requires a Seurat object. It writes a checkpoint
+for every quantile, so an interrupted job can resume, and it writes one PDF plus
+three CSV tables.
+
+```{r use-selector, eval=FALSE}
+selection <- entropy_depth_select(
+  object = seu,
+  group = "celltype",
+  q_grid = c(0.95, 0.9, 0.8, 0.7, 0.6, 0.5),
+  w = 1.5,
+  outdir = "depth_selection",
+  assay = "RNA",
+  reduction = "pca_RNA",
+  dims = 1:20,
+  mode = "counts"
+)
+
+selection
+```
+
+Page 1 asks whether a depth association exists and whether thinning can touch
+the associated covariates. Page 2 shows the objective, prices, frontier, and
+diagonal. If correction is selected, page 3 compares associations before and
+after, and page 4 optionally shows within-group results as a heatmap.
+
+The report can be redrawn without recomputing entropy:
+
+```{r rerender, eval=FALSE}
+saved <- readRDS("depth_selection/depth_selection.rds")
+entropy_depth_report(saved, "depth_selection_redrawn")
+```
