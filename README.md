@@ -8,7 +8,7 @@ Interpreting a high score as plasticity is a claim about biology, not a
 property of the measurement, so the package includes tools to test technical
 alternatives before you make it.
 
-[Package repository](https://git.scicore.unibas.ch/zaugg-group/entropy_package)
+[Package documentation](https://zaugggroup.github.io/entropy_package/)
 
 ## Overview
 
@@ -60,11 +60,7 @@ reasoning and two simulated frontiers.
 ## Installation
 
 ```r
-devtools::install_gitlab(
-  "zaugg-group/entropy_package",
-  host = "git.scicore.unibas.ch",
-  force = TRUE
-)
+devtools::install_github("ZauggGroup/entropy_package", force = TRUE)
 ```
 
 ## AnnData support
@@ -104,4 +100,7 @@ For technical and implementation questions, contact Aryan Kamal
 (aryan.kamal@unibas.ch).
 
 Bug reports and feature requests can be submitted through the
-[GitLab issue tracker](https://git.scicore.unibas.ch/zaugg-group/entropy_package/-/issues).
+[GitHub issue tracker](https://github.com/ZauggGroup/entropy_package/issues).
+
+The package is also mirrored on the University of Basel sciCORE GitLab at
+https://git.scicore.unibas.ch/zaugg-group/entropy_package, which is the institutional backup. Issues and releases live on GitHub.

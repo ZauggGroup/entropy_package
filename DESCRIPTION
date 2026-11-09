@@ -21,8 +21,10 @@ Description: Provides methods to estimate transcriptional entropy for
     retained variation. An interventional check can also alter an input and
     recompute entropy to ask whether a cluster ranking survives.
 License: LGPL (>= 3)
-URL: https://git.scicore.unibas.ch/zaugg-group/entropy_package
-BugReports: https://git.scicore.unibas.ch/zaugg-group/entropy_package/-/issues
+URL: https://zaugggroup.github.io/entropy_package/,
+    https://github.com/ZauggGroup/entropy_package,
+    https://git.scicore.unibas.ch/zaugg-group/entropy_package
+BugReports: https://github.com/ZauggGroup/entropy_package/issues
 Encoding: UTF-8
 LazyData: true
 VignetteBuilder: knitr

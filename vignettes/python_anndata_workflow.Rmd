@@ -42,11 +42,7 @@ install.packages("BiocManager")
 BiocManager::install(c("anndataR", "rhdf5"))
 
 install.packages("devtools")
-devtools::install_gitlab(
-  "zaugg-group/entropy_package",
-  host = "git.scicore.unibas.ch",
-  force = TRUE
-)
+devtools::install_github("ZauggGroup/entropy_package", force = TRUE)
 ```
 
 Install the Python dependencies in the environment used for the Scanpy

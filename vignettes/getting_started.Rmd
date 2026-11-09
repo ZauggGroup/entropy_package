@@ -21,7 +21,7 @@ Installing our *Entropy* packages is easy. Just execute the following line into 
 
 ```{r, eval = FALSE}
 library(devtools)
-devtools::install_gitlab("zaugg-group/entropy_package", host = "git.scicore.unibas.ch", force = TRUE)
+devtools::install_github("ZauggGroup/entropy_package", force = TRUE)
 ```
 
 If you receive an error message, make sure you installed the devtools package. If you don't have it installed yet, just execute the following code into *R*:
@@ -43,4 +43,4 @@ retention weight, and automatic Seurat depth-selection workflow.
 
 ## 📞 Contact and Support
 
-Please check out [**https://git.scicore.unibas.ch/zaugg-group/entropy_package**](https://git.scicore.unibas.ch/zaugg-group/entropy_package) for the source, issue tracker, updates, and how to get in contact with us.
+Please check out [**https://zaugggroup.github.io/entropy_package/**](https://zaugggroup.github.io/entropy_package/) for documentation, and [**https://github.com/ZauggGroup/entropy_package**](https://github.com/ZauggGroup/entropy_package) for the source, issue tracker and updates.

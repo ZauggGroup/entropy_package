@@ -12,3 +12,4 @@
 ^bm_ds\.qs$
 ^\.RData$
 ^\.Rhistory$
+^\.github$
