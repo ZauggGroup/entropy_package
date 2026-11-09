@@ -97,7 +97,7 @@ and Scanpy visualization are described in the
 ## Support
 
 For questions about the methodology, contact Judith B. Zaugg
-(judith.zaugg@embl.de) or Charles Dussiau
+(judith.zaugg@unibas.ch, judith.zaugg@embl.de) or Charles Dussiau
 (charles.dussiau@embl.de).
 
 For technical and implementation questions, contact Aryan Kamal

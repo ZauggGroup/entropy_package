@@ -6,7 +6,9 @@ Authors@R: c(
     person("Aryan", "Kamal", email = "aryan.kamal@unibas.ch", role = c("aut", "cre")),
     person("Charles", "Dussiau", email = "charles.dussiau@embl.de", role = c("aut")),
     person("Amelia", "Kurti", email = "amelia.kurti@dkfz-heidelberg.de", role = c("aut")),
-    person("Judith", "Zaugg", email = "judith.zaugg@embl.de", role = "aut"))
+    person("Judith", "Zaugg",
+        email = c("judith.zaugg@unibas.ch", "judith.zaugg@embl.de"),
+        role = "aut"))
 Maintainer: Aryan Kamal <aryan.kamal@unibas.ch>
 Description: Provides methods to estimate transcriptional entropy for
     individual cells in Seurat objects and AnnData h5ad files. It supports
