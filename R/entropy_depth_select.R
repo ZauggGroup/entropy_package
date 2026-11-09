@@ -477,6 +477,7 @@ entropy_depth_report <- function(x, outdir, per_cluster = TRUE) {
 #' @param ... Additional arguments, currently ignored.
 #'
 #' @return `x`, invisibly.
+#' @keywords internal
 #' @export
 print.entropy_depth_selection <- function(x, ...) {
   if (!inherits(x, "entropy_depth_selection")) {
