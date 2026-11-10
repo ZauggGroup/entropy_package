@@ -1,3 +1,20 @@
+# Entropy 0.7.1
+
+* Depth correction without *scuttle* is much faster. The built-in count
+  thinning used to read every cell with `counts[, j]`, and each read
+  re-validated the whole sparse matrix, so its cost grew with the size of the
+  full matrix for every cell. On 112,995 cells with 236 million nonzero counts
+  this took hours. It now works directly on the sparse matrix slots and only
+  visits cells above the target depth, which takes seconds in our tests.
+  Thinned cells still have exactly `target` counts, drawn without replacement.
+  Random draws differ from 0.7.0, so depth-corrected values computed without
+  *scuttle* change slightly. Results computed with *scuttle* installed are
+  unchanged.
+
+* A warning is logged when depth correction runs without *scuttle*. *scuttle*
+  is now recommended in the README and in the getting started and depth
+  correction vignettes.
+
 # Entropy 0.7.0
 
 ## Breaking

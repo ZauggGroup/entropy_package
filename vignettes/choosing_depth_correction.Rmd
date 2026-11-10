@@ -269,6 +269,12 @@ The automatic sweep currently requires a Seurat object. It writes a checkpoint
 for every quantile, so an interrupted job can resume, and it writes one PDF plus
 three CSV tables.
 
+We recommend installing *scuttle* before running the sweep or any
+depth-corrected run (`BiocManager::install("scuttle")`). Thinning uses
+`scuttle::downsampleMatrix()` when it is installed and a built-in sampler
+otherwise. In versions before 0.7.1 the built-in sampler could take hours on
+datasets of around 100,000 cells, once for every quantile.
+
 ```{r use-selector, eval=FALSE}
 selection <- entropy_depth_select(
   object = seu,

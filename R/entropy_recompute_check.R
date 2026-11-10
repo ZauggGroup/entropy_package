@@ -704,6 +704,19 @@ print.entropy_recompute <- function(x, ...) {
 }
 
 
+# Internal: thin each cell's counts to a target depth
+#
+# Cells whose total is above `target` are downsampled without replacement to
+# exactly `target` counts. Cells at or below the target are returned
+# unchanged. `scuttle::downsampleMatrix()` is used when it is installed.
+# Otherwise a built-in sampler works directly on the column-compressed slots
+# and only visits the cells above the target.
+#
+# @param counts A non-negative integer-like count matrix, genes by cells.
+# @param target One positive count depth.
+#
+# @return The thinned counts as a column-compressed sparse matrix with the
+#   same dimensions and dimnames.
 .entropy_downsample_matrix <- function(counts, target) {
   totals <- Matrix::colSums(counts)
   proportions <- pmin(1, target / totals)
@@ -714,37 +727,51 @@ print.entropy_recompute <- function(x, ...) {
     )
     return(.entropy_as_csparse(downsampled))
   }
-  columns <- lapply(seq_len(ncol(counts)), function(column) {
-    values <- as.numeric(counts[, column])
-    total <- sum(values)
-    if (total <= target) {
-      index <- which(values > 0)
-      return(list(index = index, value = values[index]))
-    }
-    positive <- which(values > 0)
-    result <- numeric(length(values))
-    remaining_total <- total
-    remaining_draw <- target
-    if (length(positive) > 1L) {
-      for (index in positive[-length(positive)]) {
-        draw <- stats::rhyper(1L, values[[index]],
-                              remaining_total - values[[index]], remaining_draw)
-        result[[index]] <- draw
-        remaining_total <- remaining_total - values[[index]]
-        remaining_draw <- remaining_draw - draw
-      }
-    }
-    result[[positive[[length(positive)]]]] <- remaining_draw
-    index <- which(result > 0)
-    list(index = index, value = result[index])
-  })
-  lengths <- vapply(columns, function(column) length(column$index), integer(1))
-  Matrix::sparseMatrix(
-    i = unlist(lapply(columns, `[[`, "index"), use.names = FALSE),
-    j = rep(seq_along(columns), lengths),
-    x = unlist(lapply(columns, `[[`, "value"), use.names = FALSE),
-    dims = dim(counts), dimnames = dimnames(counts)
-  )
+  futile.logger::flog.warn(paste(
+    "Package 'scuttle' is not installed; using the built-in count thinning.",
+    "Install it with BiocManager::install(\"scuttle\") for faster depth",
+    "correction on large datasets."
+  ))
+  .entropy_downsample_fallback(counts, target, totals)
+}
+
+# Internal: built-in count thinning without scuttle
+#
+# Reads and writes the `@p` and `@x` slots of a `dgCMatrix` directly, so no
+# per-column subsetting or full-matrix validation happens inside the loop.
+# Each affected cell's counts are expanded to molecules, `target` molecules
+# are drawn without replacement, and the draws are tabulated back onto the
+# cell's nonzero genes. Totals of affected cells equal `target` exactly.
+#
+# @param counts A non-negative integer-like count matrix, genes by cells.
+# @param target One positive count depth.
+# @param totals Column totals of `counts`.
+#
+# @return A `dgCMatrix` with the same dimensions and dimnames.
+.entropy_downsample_fallback <- function(counts, target,
+                                         totals = Matrix::colSums(counts)) {
+  counts <- .entropy_as_csparse(counts)
+  if (!methods::is(counts, "dgCMatrix")) {
+    counts <- methods::as(counts, "dgCMatrix")
+  }
+  affected <- which(totals > target)
+  if (!length(affected)) {
+    return(counts)
+  }
+  target <- as.integer(floor(target))
+  pointers <- counts@p
+  values <- counts@x
+  for (column in affected) {
+    from <- pointers[[column]] + 1L
+    to <- pointers[[column + 1L]]
+    index <- from:to
+    cell_counts <- as.integer(round(values[index]))
+    molecules <- rep.int(seq_along(cell_counts), cell_counts)
+    kept <- molecules[sample.int(length(molecules), target)]
+    values[index] <- tabulate(kept, nbins = length(cell_counts))
+  }
+  counts@x <- values
+  Matrix::drop0(counts)
 }
 
 

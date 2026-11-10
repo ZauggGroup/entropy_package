@@ -63,6 +63,15 @@ reasoning and two simulated frontiers.
 devtools::install_github("ZauggGroup/entropy_package", force = TRUE)
 ```
 
+If you use depth correction, we recommend also installing *scuttle* from
+Bioconductor. Thinning uses it when present and a built-in sampler otherwise.
+In versions before 0.7.1 the built-in sampler could take hours on large
+datasets.
+
+```r
+BiocManager::install("scuttle")
+```
+
 ## AnnData support
 
 `run_entropy_h5ad()` provides direct support for AnnData `.h5ad` files without

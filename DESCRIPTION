@@ -1,7 +1,7 @@
 Package: Entropy
 Type: Package
 Title: Entropy Estimation for Seurat and AnnData Objects
-Version: 0.7.0
+Version: 0.7.1
 Authors@R: c(
     person("Aryan", "Kamal", email = "aryan.kamal@unibas.ch", role = c("aut", "cre")),
     person("Charles", "Dussiau", email = "charles.dussiau@embl.de", role = c("aut")),

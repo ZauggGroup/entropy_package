@@ -30,6 +30,24 @@ If you receive an error message, make sure you installed the devtools package. I
 install.packages("devtools")
 ```
 
+### Recommended for depth correction: *scuttle*
+
+If you plan to use depth correction (`depth_correct = TRUE`, or
+`entropy_depth_select()`), install the Bioconductor package *scuttle* first:
+
+```{r, eval = FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+BiocManager::install("scuttle")
+```
+
+*Entropy* uses `scuttle::downsampleMatrix()` to thin counts when it is
+available. Without it, a built-in R sampler is used and a warning is logged.
+Both draw counts without replacement. Before version 0.7.1 the built-in
+sampler read every cell one column at a time, which took hours on datasets of
+around 100,000 cells. If you are on an older version, install *scuttle*.
+
 ## Python and AnnData users
 
 Python and Scanpy users can compute entropy directly from an `.h5ad` file and
